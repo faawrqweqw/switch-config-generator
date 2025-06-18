@@ -22,24 +22,243 @@ def load_template(vendor, config_type):
         return None
 
 def expand_ports(port_string):
-    """展开端口范围，如 GigabitEthernet0/1-4 -> [GigabitEthernet0/1, GigabitEthernet0/2, ...]"""
+    """
+    增强版端口展开函数，支持复杂的不连续端口输入
+
+    支持的格式：
+    - 单个端口：GigabitEthernet0/0/1
+    - 简单范围：GigabitEthernet0/0/1-4
+    - 复杂范围：GigabitEthernet0/0/1-4,0/0/8-10
+    - 不连续端口：GigabitEthernet0/0/1,0/0/4,0/0/5-10
+    - 混合格式：GigabitEthernet0/0/1,0/0/4,0/0/5-10,0/0/15
+    - 多层级：GigabitEthernet0/0/1-4,1/0/1-2
+    """
     ports = []
 
+    if not port_string or not port_string.strip():
+        return ports
+
     # 处理逗号分隔的多个端口或范围
-    parts = [part.strip() for part in port_string.split(',')]
+    parts = [part.strip() for part in port_string.split(',') if part.strip()]
 
     for part in parts:
-        if '-' in part:
-            # 处理范围，如 GigabitEthernet0/1-4
-            match = re.match(r'(.+?)(\d+)-(\d+)$', part)
-            if match:
-                prefix, start, end = match.groups()
-                for i in range(int(start), int(end) + 1):
-                    ports.append(f"{prefix}{i}")
-            else:
-                ports.append(part)
+        expanded_part = _expand_single_port_part(part)
+        ports.extend(expanded_part)
+
+    # 去重并保持顺序
+    seen = set()
+    unique_ports = []
+    for port in ports:
+        if port not in seen:
+            seen.add(port)
+            unique_ports.append(port)
+
+    return unique_ports
+
+def _expand_single_port_part(part):
+    """
+    展开单个端口部分
+    支持多种格式的端口范围
+    """
+    ports = []
+
+    if '-' in part:
+        # 处理范围格式
+        ports.extend(_expand_port_range(part))
+    else:
+        # 单个端口
+        ports.append(part)
+
+    return ports
+
+def _expand_port_range(range_part):
+    """
+    展开端口范围，支持多种复杂格式
+
+    支持的范围格式：
+    1. GigabitEthernet0/0/1-4 (简单范围)
+    2. GigabitEthernet0/0/1-4 (最后一位数字范围)
+    3. GigabitEthernet0/1/1-0/2/4 (跨槽位范围)
+    4. 10GE1/0/1-1/0/4 (华为10GE格式)
+    """
+    ports = []
+
+    # 尝试匹配不同的范围格式
+    range_patterns = [
+        # 格式1: 简单数字范围 (如: GigabitEthernet0/0/1-4)
+        r'^(.+?)(\d+)-(\d+)$',
+
+        # 格式2: 复杂路径范围 (如: GigabitEthernet0/0/1-0/0/4)
+        r'^(.+?)(\d+/\d+/\d+)-(\d+/\d+/\d+)$',
+
+        # 格式3: 槽位范围 (如: GigabitEthernet0/1-0/4)
+        r'^(.+?)(\d+/\d+)-(\d+/\d+)$',
+
+        # 格式4: 华为简化格式 (如: 10GE1/0/1-4)
+        r'^(.+?)(\d+/\d+/\d+)-(\d+)$'
+    ]
+
+    for pattern in range_patterns:
+        match = re.match(pattern, range_part)
+        if match:
+            if pattern == range_patterns[0]:  # 简单数字范围
+                ports.extend(_expand_simple_number_range(match))
+            elif pattern == range_patterns[1]:  # 复杂路径范围
+                ports.extend(_expand_complex_path_range(match))
+            elif pattern == range_patterns[2]:  # 槽位范围
+                ports.extend(_expand_slot_range(match))
+            elif pattern == range_patterns[3]:  # 华为简化格式
+                ports.extend(_expand_huawei_simplified_range(match))
+            break
+    else:
+        # 如果没有匹配到任何模式，直接返回原字符串
+        ports.append(range_part)
+
+    return ports
+
+def _expand_simple_number_range(match):
+    """展开简单数字范围 (如: GigabitEthernet0/0/1-4)"""
+    prefix, start, end = match.groups()
+    ports = []
+
+    try:
+        start_num = int(start)
+        end_num = int(end)
+
+        if start_num <= end_num:
+            for i in range(start_num, end_num + 1):
+                ports.append(f"{prefix}{i}")
         else:
-            ports.append(part)
+            # 如果起始大于结束，交换顺序
+            for i in range(end_num, start_num + 1):
+                ports.append(f"{prefix}{i}")
+    except ValueError:
+        # 如果转换失败，返回原字符串
+        ports.append(f"{prefix}{start}-{end}")
+
+    return ports
+
+def _expand_complex_path_range(match):
+    """展开复杂路径范围 (如: GigabitEthernet0/0/1-0/0/4)"""
+    prefix, start_path, end_path = match.groups()
+    ports = []
+
+    try:
+        # 解析起始和结束路径
+        start_parts = [int(x) for x in start_path.split('/')]
+        end_parts = [int(x) for x in end_path.split('/')]
+
+        if len(start_parts) == len(end_parts) == 3:
+            # 三层路径格式 (slot/subslot/port)
+            start_slot, start_subslot, start_port = start_parts
+            end_slot, end_subslot, end_port = end_parts
+
+            # 生成范围内的所有端口
+            for slot in range(start_slot, end_slot + 1):
+                if slot == start_slot and slot == end_slot:
+                    # 同一槽位
+                    for subslot in range(start_subslot, end_subslot + 1):
+                        if subslot == start_subslot and subslot == end_subslot:
+                            # 同一子槽位
+                            for port in range(start_port, end_port + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                        elif subslot == start_subslot:
+                            # 起始子槽位
+                            for port in range(start_port, 48 + 1):  # 假设最大48端口
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                        elif subslot == end_subslot:
+                            # 结束子槽位
+                            for port in range(1, end_port + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                        else:
+                            # 中间子槽位
+                            for port in range(1, 48 + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                elif slot == start_slot:
+                    # 起始槽位
+                    for subslot in range(start_subslot, 8 + 1):  # 假设最大8子槽位
+                        if subslot == start_subslot:
+                            for port in range(start_port, 48 + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                        else:
+                            for port in range(1, 48 + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                elif slot == end_slot:
+                    # 结束槽位
+                    for subslot in range(0, end_subslot + 1):
+                        if subslot == end_subslot:
+                            for port in range(1, end_port + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                        else:
+                            for port in range(1, 48 + 1):
+                                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+                else:
+                    # 中间槽位
+                    for subslot in range(0, 8 + 1):
+                        for port in range(1, 48 + 1):
+                            ports.append(f"{prefix}{slot}/{subslot}/{port}")
+
+    except (ValueError, IndexError):
+        # 如果解析失败，返回原字符串
+        ports.append(f"{prefix}{start_path}-{end_path}")
+
+    return ports
+
+def _expand_slot_range(match):
+    """展开槽位范围 (如: GigabitEthernet0/1-0/4)"""
+    prefix, start_path, end_path = match.groups()
+    ports = []
+
+    try:
+        start_parts = [int(x) for x in start_path.split('/')]
+        end_parts = [int(x) for x in end_path.split('/')]
+
+        if len(start_parts) == len(end_parts) == 2:
+            start_slot, start_port = start_parts
+            end_slot, end_port = end_parts
+
+            for slot in range(start_slot, end_slot + 1):
+                if slot == start_slot and slot == end_slot:
+                    # 同一槽位
+                    for port in range(start_port, end_port + 1):
+                        ports.append(f"{prefix}{slot}/{port}")
+                elif slot == start_slot:
+                    # 起始槽位
+                    for port in range(start_port, 48 + 1):
+                        ports.append(f"{prefix}{slot}/{port}")
+                elif slot == end_slot:
+                    # 结束槽位
+                    for port in range(1, end_port + 1):
+                        ports.append(f"{prefix}{slot}/{port}")
+                else:
+                    # 中间槽位
+                    for port in range(1, 48 + 1):
+                        ports.append(f"{prefix}{slot}/{port}")
+
+    except (ValueError, IndexError):
+        ports.append(f"{prefix}{start_path}-{end_path}")
+
+    return ports
+
+def _expand_huawei_simplified_range(match):
+    """展开华为简化格式 (如: 10GE1/0/1-4)"""
+    prefix, start_path, end_num = match.groups()
+    ports = []
+
+    try:
+        # 解析起始路径
+        start_parts = [int(x) for x in start_path.split('/')]
+        end_number = int(end_num)
+
+        if len(start_parts) == 3:
+            slot, subslot, start_port = start_parts
+
+            # 从起始端口到结束端口
+            for port in range(start_port, end_number + 1):
+                ports.append(f"{prefix}{slot}/{subslot}/{port}")
+
+    except (ValueError, IndexError):
+        ports.append(f"{prefix}{start_path}-{end_num}")
 
     return ports
 

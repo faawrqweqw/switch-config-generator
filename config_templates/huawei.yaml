@@ -82,14 +82,14 @@ vlan_complete_config:
     {% if vlan_name %}
     {% for vlan in vlan_list %}
     vlan {{ vlan }}
-     name {{ vlan_name }}
+     description {{ vlan_name }}
     quit
     {% endfor %}
     {% endif %}
     {% else %}
     vlan {{ vlan_id }}
     {% if vlan_name %}
-     name {{ vlan_name }}
+     description {{ vlan_name }}
     {% endif %}
     quit
     {% endif %}

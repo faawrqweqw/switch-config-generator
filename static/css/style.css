@@ -284,3 +284,88 @@ footer {
     border-radius: 0.5rem;
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
+
+/* 接口组合输入样式 */
+.interface-combo-input {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    margin-bottom: 1rem;
+}
+
+.interface-type-selector .btn-group {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.interface-type-selector .btn-sm {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+    margin: 0.125rem;
+}
+
+.interface-type-selector .btn-check:checked + .btn {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.interface-preview {
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.75rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    min-height: 2rem;
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+    word-break: break-all;
+}
+
+.interface-preview.border-success {
+    border-color: var(--success-color);
+    background-color: #d1e7dd;
+}
+
+.interface-preview.border-danger {
+    border-color: var(--danger-color);
+    background-color: #f8d7da;
+}
+
+.interface-preview .text-success {
+    color: var(--success-color) !important;
+    font-weight: 500;
+}
+
+.interface-preview .text-danger {
+    color: var(--danger-color) !important;
+    font-weight: 500;
+}
+
+.interface-preview .text-muted {
+    color: var(--secondary-color) !important;
+}
+
+.interface-preview i {
+    margin-right: 0.25rem;
+}
+
+/* 接口组合输入响应式样式 */
+@media (max-width: 768px) {
+    .interface-type-selector .btn-group {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .interface-type-selector .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .interface-combo-input {
+        padding: 0.75rem;
+    }
+}

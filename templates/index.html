@@ -345,8 +345,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
+            // 检查是否为接口相关参数，使用组合输入
+            if (!inputHtml && isInterfaceParameter(paramName, paramConfig)) {
+                inputHtml = createInterfaceComboInput(paramName, paramConfig, requiredAttr, requiredLabel, currentVendor);
+            }
             // 如果没有生成特殊的inputHtml，则根据参数类型生成标准输入控件
-            if (!inputHtml && paramConfig.options) {
+            else if (!inputHtml && paramConfig.options) {
                 // 下拉选择
                 inputHtml = `
                     <label for="${paramName}" class="form-label">${paramConfig.description || paramName} ${requiredLabel}</label>
@@ -548,6 +552,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (key === 'stp_mode' && currentConfigType === 'stp_config') {
                         input.dispatchEvent(new Event('change'));
                     }
+
+                    // 如果是接口组合输入，尝试解析并填入组合控件
+                    if (input.type === 'hidden' && isInterfaceParameter(key, {})) {
+                        fillInterfaceComboInput(key, value);
+                    }
                 }
             }
         }
@@ -717,6 +726,503 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         showToast('示例数据已填入', 'success');
+    }
+
+    // 接口组合输入相关函数
+
+    // 判断是否为接口相关参数（全局函数）
+    window.isInterfaceParameter = function(paramName, paramConfig) {
+        // 接口相关参数名称列表（精确匹配，避免过度匹配）
+        const interfaceParams = [
+            'interface', 'interfaces', 'interface_name'
+        ];
+
+        // 只检查参数名称，避免描述匹配导致的误判
+        return interfaceParams.includes(paramName);
+    }
+
+    // 创建接口组合输入控件（全局函数）
+    window.createInterfaceComboInput = function(paramName, paramConfig, requiredAttr, requiredLabel, vendor) {
+        const description = paramConfig.description || paramName;
+        const placeholder = paramConfig.placeholder || '';
+
+        // 根据厂商获取接口类型选项
+        const interfaceTypes = getInterfaceTypesByVendor(vendor);
+
+        // 生成接口类型按钮组
+        const typeButtons = interfaceTypes.map(type => `
+            <input type="radio" class="btn-check" name="${paramName}_type" id="${paramName}_type_${type.value}" value="${type.value}" autocomplete="off">
+            <label class="btn btn-outline-primary btn-sm" for="${paramName}_type_${type.value}">${type.label}</label>
+        `).join('');
+
+        // 延迟绑定事件，避免在HTML字符串中包含script标签
+        setTimeout(() => {
+            bindInterfaceComboEvents(paramName);
+        }, 100);
+
+        return `
+            <label for="${paramName}" class="form-label">${description} ${requiredLabel}</label>
+
+            <!-- 接口类型选择 -->
+            <div class="mb-2">
+                <small class="text-muted d-block mb-1">选择接口类型：</small>
+                <div class="btn-group" role="group" aria-label="接口类型选择">
+                    ${typeButtons}
+                </div>
+            </div>
+
+            <!-- 端口号输入 -->
+            <div class="input-group">
+                <span class="input-group-text" id="${paramName}_prefix">接口前缀</span>
+                <input type="text" class="form-control" id="${paramName}_ports" name="${paramName}_ports"
+                       placeholder="端口号，如：0/0/1 或 0/0/1-4" aria-describedby="${paramName}_prefix">
+            </div>
+
+            <!-- 隐藏的实际输入框 -->
+            <input type="hidden" id="${paramName}" name="${paramName}" ${requiredAttr}>
+
+            <!-- 预览区域 -->
+            <div class="mt-2">
+                <small class="text-muted">预览：</small>
+                <div class="form-text" id="${paramName}_preview">请选择接口类型并输入端口号</div>
+            </div>
+
+            <!-- 帮助信息 -->
+            <div class="form-help">
+                <small class="text-muted">
+                    支持单个端口（如：0/0/1）或端口范围（如：0/0/1-4），多个端口用逗号分隔
+                </small>
+            </div>
+        `;
+    }
+
+    // 绑定接口组合输入事件（全局函数）
+    window.bindInterfaceComboEvents = function(paramName) {
+        // 绑定接口类型选择事件
+        const typeRadios = document.querySelectorAll(`input[name="${paramName}_type"]`);
+        typeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                updateInterfacePreview(paramName);
+            });
+        });
+
+        // 绑定端口号输入事件
+        const portsInput = document.getElementById(`${paramName}_ports`);
+        if (portsInput) {
+            portsInput.addEventListener('input', function() {
+                updateInterfacePreview(paramName);
+            });
+        }
+    }
+
+    // 根据厂商获取接口类型选项（全局函数）
+    window.getInterfaceTypesByVendor = function(vendor) {
+        const vendorSpecific = {
+            'huawei': [
+                { value: 'GigabitEthernet', label: 'GigabitEthernet' },
+                { value: 'XGigabitEthernet', label: 'XGigabitEthernet' },
+                { value: '10GE', label: '10GE' },
+                { value: '100GE', label: '100GE' },
+                { value: 'Vlanif', label: 'Vlanif' }
+            ],
+            'h3c': [
+                { value: 'Ethernet', label: 'Ethernet' },
+                { value: 'GigabitEthernet', label: 'GigabitEthernet' },
+                { value: 'Ten-GigabitEthernet', label: 'Ten-GigabitEthernet' }
+            ],
+            'cisco': [
+                { value: 'FastEthernet', label: 'FastEthernet' },
+                { value: 'GigabitEthernet', label: 'GigabitEthernet' },
+                { value: 'TenGigabitEthernet', label: 'TenGigabitEthernet' },
+                { value: 'FortyGigabitEthernet', label: 'FortyGigabitEthernet' },
+                { value: 'Port-channel', label: 'Port-channel' },
+                { value: 'Vlan', label: 'Vlan' },
+                { value: 'Loopback', label: 'Loopback' }
+            ],
+            'ruijie': [
+                { value: 'FastEthernet', label: 'FastEthernet' },
+                { value: 'GigabitEthernet', label: 'GigabitEthernet' },
+                { value: 'TenGigabitEthernet', label: 'TenGigabitEthernet' },
+                { value: 'aggregateport', label: 'AggregatePort' }
+            ]
+        };
+
+        // 如果厂商不存在，返回通用类型
+        return vendorSpecific[vendor] || [
+            { value: 'GigabitEthernet', label: 'GigabitEthernet' },
+            { value: 'FastEthernet', label: 'FastEthernet' }
+        ];
+    }
+
+    // 更新接口预览（全局函数）
+    window.updateInterfacePreview = function(paramName) {
+        const typeRadios = document.querySelectorAll(`input[name="${paramName}_type"]`);
+        const portsInput = document.getElementById(`${paramName}_ports`);
+        const hiddenInput = document.getElementById(paramName);
+        const previewDiv = document.getElementById(`${paramName}_preview`);
+        const prefixSpan = document.querySelector(`#${paramName}_prefix`);
+
+        // 获取选中的接口类型
+        let selectedType = '';
+        typeRadios.forEach(radio => {
+            if (radio.checked) {
+                selectedType = radio.value;
+            }
+        });
+
+        // 更新前缀显示和占位符
+        if (selectedType && prefixSpan) {
+            prefixSpan.textContent = selectedType;
+
+            // 更新输入框占位符，显示该接口类型的示例
+            if (portsInput) {
+                const examples = generatePortExamples(selectedType);
+                portsInput.placeholder = `如：${examples[0]} 或 ${examples[1]}`;
+            }
+        }
+
+        // 获取端口号输入
+        const portsValue = portsInput ? portsInput.value.trim() : '';
+
+        if (selectedType && portsValue) {
+            // 验证端口输入格式
+            const validation = validatePortInput(portsValue);
+
+            if (validation.valid) {
+                // 生成完整的接口名称
+                const fullInterfaceName = generateFullInterfaceName(selectedType, portsValue);
+
+                // 更新隐藏输入框的值
+                if (hiddenInput) {
+                    hiddenInput.value = fullInterfaceName;
+                }
+
+                // 更新预览 - 成功状态
+                if (previewDiv) {
+                    // 计算预计生成的端口数量
+                    const portCount = estimatePortCount(portsValue);
+                    const countText = portCount > 1 ? ` (预计${portCount}个端口)` : '';
+
+                    previewDiv.innerHTML = `
+                        <span class="text-success">
+                            <i class="fas fa-check-circle"></i> ${fullInterfaceName}${countText}
+                        </span>
+                    `;
+                    previewDiv.className = 'form-text interface-preview border-success';
+                }
+
+                // 移除错误样式
+                if (portsInput) {
+                    portsInput.classList.remove('is-invalid');
+                    portsInput.classList.add('is-valid');
+                }
+            } else {
+                // 验证失败
+                if (hiddenInput) {
+                    hiddenInput.value = '';
+                }
+
+                if (previewDiv) {
+                    previewDiv.innerHTML = `
+                        <span class="text-danger">
+                            <i class="fas fa-exclamation-triangle"></i> ${validation.message}
+                        </span>
+                    `;
+                    previewDiv.className = 'form-text interface-preview border-danger';
+                }
+
+                // 添加错误样式
+                if (portsInput) {
+                    portsInput.classList.remove('is-valid');
+                    portsInput.classList.add('is-invalid');
+                }
+            }
+        } else {
+            // 清空值和预览
+            if (hiddenInput) {
+                hiddenInput.value = '';
+            }
+
+            if (portsInput) {
+                portsInput.classList.remove('is-valid', 'is-invalid');
+            }
+
+            if (previewDiv) {
+                if (!selectedType && !portsValue) {
+                    previewDiv.innerHTML = '请选择接口类型并输入端口号';
+                } else if (!selectedType) {
+                    previewDiv.innerHTML = '请选择接口类型';
+                } else {
+                    previewDiv.innerHTML = `
+                        <span class="text-muted">
+                            请输入端口号，支持格式：
+                            <br><small>${generatePortExamples(selectedType).join(', ')}</small>
+                        </span>
+                    `;
+                }
+                previewDiv.className = 'form-text interface-preview';
+            }
+        }
+    }
+
+    // 估算端口数量（全局函数）
+    window.estimatePortCount = function(portsValue) {
+        const portParts = portsValue.split(',').map(part => part.trim()).filter(part => part);
+        let totalCount = 0;
+
+        for (const part of portParts) {
+            if (part.includes('-')) {
+                // 范围端口
+                const rangeMatch = part.match(/(\d+)-(\d+)$/);
+                if (rangeMatch) {
+                    const start = parseInt(rangeMatch[1]);
+                    const end = parseInt(rangeMatch[2]);
+                    totalCount += Math.abs(end - start) + 1;
+                } else {
+                    // 复杂范围，估算为5个端口
+                    totalCount += 5;
+                }
+            } else {
+                // 单个端口
+                totalCount += 1;
+            }
+        }
+
+        return totalCount;
+    }
+
+    // 生成完整接口名称（全局函数）
+    window.generateFullInterfaceName = function(interfaceType, portsValue) {
+        // 处理多个端口（逗号分隔）
+        const portParts = portsValue.split(',').map(part => part.trim()).filter(part => part);
+
+        const fullNames = portParts.map(portPart => {
+            return `${interfaceType}${portPart}`;
+        });
+
+        return fullNames.join(',');
+    }
+
+    // 验证端口输入格式（全局函数）
+    window.validatePortInput = function(portsValue) {
+        if (!portsValue || !portsValue.trim()) {
+            return { valid: false, message: '端口号不能为空' };
+        }
+
+        const portParts = portsValue.split(',').map(part => part.trim()).filter(part => part);
+        const errors = [];
+
+        for (let i = 0; i < portParts.length; i++) {
+            const part = portParts[i];
+            const validation = validateSinglePortPart(part);
+            if (!validation.valid) {
+                errors.push(`第${i + 1}个端口格式错误: ${validation.message}`);
+            }
+        }
+
+        if (errors.length > 0) {
+            return { valid: false, message: errors.join('; ') };
+        }
+
+        return { valid: true, message: '格式正确' };
+    }
+
+    // 验证单个端口部分（全局函数）
+    window.validateSinglePortPart = function(part) {
+        // 支持的端口格式模式
+        const patterns = [
+            // 简单端口号: 1, 0/1, 0/0/1
+            /^\d+$/,
+            /^\d+\/\d+$/,
+            /^\d+\/\d+\/\d+$/,
+
+            // 简单范围: 1-4, 0/1-4, 0/0/1-4
+            /^\d+-\d+$/,
+            /^\d+\/\d+-\d+$/,
+            /^\d+\/\d+\/\d+-\d+$/,
+
+            // 复杂范围: 0/0/1-0/0/4, 0/1-0/4
+            /^\d+\/\d+\/\d+-\d+\/\d+\/\d+$/,
+            /^\d+\/\d+-\d+\/\d+$/,
+
+            // 华为简化范围: 1/0/1-4
+            /^\d+\/\d+\/\d+-\d+$/
+        ];
+
+        for (const pattern of patterns) {
+            if (pattern.test(part)) {
+                // 进一步验证范围的逻辑性
+                if (part.includes('-')) {
+                    return validatePortRange(part);
+                }
+                return { valid: true, message: '格式正确' };
+            }
+        }
+
+        return { valid: false, message: `不支持的端口格式: ${part}` };
+    }
+
+    // 验证端口范围的逻辑性（全局函数）
+    window.validatePortRange = function(rangePart) {
+        try {
+            // 简单数字范围验证
+            const simpleRangeMatch = rangePart.match(/^(\d+)-(\d+)$/);
+            if (simpleRangeMatch) {
+                const start = parseInt(simpleRangeMatch[1]);
+                const end = parseInt(simpleRangeMatch[2]);
+                if (start > end) {
+                    return { valid: false, message: `范围起始值(${start})不能大于结束值(${end})` };
+                }
+                if (end - start > 47) {
+                    return { valid: false, message: `端口范围过大，建议不超过48个端口` };
+                }
+                return { valid: true, message: '范围有效' };
+            }
+
+            // 复杂路径范围验证
+            const complexRangeMatch = rangePart.match(/^(\d+\/\d+\/\d+)-(\d+\/\d+\/\d+)$/);
+            if (complexRangeMatch) {
+                const startPath = complexRangeMatch[1].split('/').map(x => parseInt(x));
+                const endPath = complexRangeMatch[2].split('/').map(x => parseInt(x));
+
+                // 比较路径大小
+                for (let i = 0; i < 3; i++) {
+                    if (startPath[i] > endPath[i]) {
+                        return { valid: false, message: `起始路径不能大于结束路径` };
+                    } else if (startPath[i] < endPath[i]) {
+                        break;
+                    }
+                }
+
+                return { valid: true, message: '路径范围有效' };
+            }
+
+            return { valid: true, message: '范围格式正确' };
+
+        } catch (error) {
+            return { valid: false, message: '范围格式解析错误' };
+        }
+    }
+
+    // 生成端口输入示例（全局函数）
+    window.generatePortExamples = function(interfaceType) {
+        const examples = {
+            'GigabitEthernet': [
+                '0/0/1',
+                '0/0/1-4',
+                '0/0/1,0/0/4,0/0/5-10',
+                '0/0/1-0/0/4',
+                '1/0/1-2/0/4'
+            ],
+            'FastEthernet': [
+                '0/1',
+                '0/1-4',
+                '0/1,0/4,0/5-10'
+            ],
+            'TenGigabitEthernet': [
+                '1/0/1',
+                '1/0/1-4',
+                '1/0/1,1/0/3,1/0/5-8'
+            ],
+            '10GE': [
+                '1/0/1',
+                '1/0/1-4',
+                '1/0/1,1/0/3-6'
+            ],
+            'Vlanif': [
+                '10',
+                '10,20,30-40',
+                '100-200'
+            ],
+            'Port-channel': [
+                '1',
+                '1,3,5-8'
+            ]
+        };
+
+        return examples[interfaceType] || ['0/0/1', '0/0/1-4', '0/0/1,0/0/3-6'];
+    }
+
+    // 填入接口组合输入控件（全局函数）
+    window.fillInterfaceComboInput = function(paramName, interfaceValue) {
+        if (!interfaceValue) return;
+
+        // 解析接口名称，提取接口类型和端口号
+        const parsed = parseInterfaceName(interfaceValue);
+
+        if (parsed.type && parsed.ports) {
+            // 选择对应的接口类型
+            const typeRadio = document.getElementById(`${paramName}_type_${parsed.type}`);
+            if (typeRadio) {
+                typeRadio.checked = true;
+            }
+
+            // 填入端口号
+            const portsInput = document.getElementById(`${paramName}_ports`);
+            if (portsInput) {
+                portsInput.value = parsed.ports;
+            }
+
+            // 更新预览
+            updateInterfacePreview(paramName);
+        }
+    }
+
+    // 解析接口名称（全局函数）
+    window.parseInterfaceName = function(interfaceName) {
+        // 处理多个接口（逗号分隔）
+        const interfaces = interfaceName.split(',').map(i => i.trim());
+        const firstInterface = interfaces[0];
+
+        // 常见接口类型的正则表达式（按照新的厂商规范）
+        const patterns = [
+            // 华为接口类型
+            { type: 'GigabitEthernet', regex: /^GigabitEthernet(.+)$/ },
+            { type: 'XGigabitEthernet', regex: /^XGigabitEthernet(.+)$/ },
+            { type: '10GE', regex: /^10GE(.+)$/ },
+            { type: '100GE', regex: /^100GE(.+)$/ },
+            { type: 'Vlanif', regex: /^Vlanif(.+)$/ },
+
+            // 华三接口类型
+            { type: 'Ethernet', regex: /^Ethernet(.+)$/ },
+            { type: 'Ten-GigabitEthernet', regex: /^Ten-GigabitEthernet(.+)$/ },
+
+            // 思科接口类型
+            { type: 'FastEthernet', regex: /^FastEthernet(.+)$/ },
+            { type: 'TenGigabitEthernet', regex: /^TenGigabitEthernet(.+)$/ },
+            { type: 'FortyGigabitEthernet', regex: /^FortyGigabitEthernet(.+)$/ },
+            { type: 'Port-channel', regex: /^Port-channel(.+)$/ },
+            { type: 'Vlan', regex: /^Vlan(.+)$/ },
+            { type: 'Loopback', regex: /^Loopback(.+)$/ },
+
+            // 锐捷接口类型
+            { type: 'aggregateport', regex: /^aggregateport(.+)$/ }
+        ];
+
+        for (const pattern of patterns) {
+            const match = firstInterface.match(pattern.regex);
+            if (match) {
+                // 如果有多个接口，需要重新组合端口号部分
+                if (interfaces.length > 1) {
+                    const allPorts = interfaces.map(iface => {
+                        const portMatch = iface.match(pattern.regex);
+                        return portMatch ? portMatch[1] : '';
+                    }).filter(port => port);
+
+                    return {
+                        type: pattern.type,
+                        ports: allPorts.join(',')
+                    };
+                } else {
+                    return {
+                        type: pattern.type,
+                        ports: match[1]
+                    };
+                }
+            }
+        }
+
+        return { type: null, ports: null };
     }
 
     // 表单提交事件
@@ -923,6 +1429,11 @@ function restoreFormData() {
                                     // 如果是STP模式下拉框，触发change事件以更新参数显示
                                     if (key === 'stp_mode' && formData.configType === 'stp_config') {
                                         input.dispatchEvent(new Event('change'));
+                                    }
+
+                                    // 如果是接口组合输入，尝试解析并填入组合控件
+                                    if (input.type === 'hidden' && isInterfaceParameter(key, {})) {
+                                        fillInterfaceComboInput(key, value);
                                     }
                                 }
                             }
