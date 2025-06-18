@@ -1,0 +1,1062 @@
+# H3C设备配置模板
+
+
+
+vlan_complete_config:
+  description: "VLAN一体化配置（可选创建VLAN+可选接口配置+可选IP配置）"
+  parameters:
+    # 是否创建VLAN开关
+    create_vlan:
+      type: "boolean"
+      required: false
+      default: true
+      description: "是否创建VLAN"
+      order: 1
+
+    # VLAN创建参数
+    vlan_id:
+      type: "string"
+      required: false
+      description: "VLAN ID（支持批量，如：10,20,30-40）"
+      order: 2
+    vlan_name:
+      type: "string"
+      required: false
+      max_length: 32
+      description: "VLAN名称"
+      order: 3
+
+    # 是否配置接口VLAN开关
+    configure_interface:
+      type: "boolean"
+      required: false
+      default: true
+      description: "是否配置接口VLAN"
+      order: 4
+
+    # 接口配置参数
+    interface:
+      type: "string"
+      required: false
+      description: "接口名称（支持范围，如：GigabitEthernet1/0/1-4）"
+      order: 5
+    port_mode:
+      type: "string"
+      required: false
+      options: ["access", "trunk"]
+      description: "端口模式"
+      order: 6
+    pvid:
+      type: "integer"
+      required: false
+      range: [1, 4094]
+      description: "端口PVID"
+      order: 7
+    allowed_vlans:
+      type: "string"
+      required: false
+      description: "允许通过的VLAN列表(仅trunk模式，支持范围如：10,20,30-40)"
+      order: 8
+
+    # 可选的VLAN接口IP配置
+    configure_vlan_ip:
+      type: "boolean"
+      required: false
+      default: false
+      description: "是否配置VLAN接口IP地址"
+      order: 9
+    vlan_ip_address:
+      type: "string"
+      required: false
+      description: "VLAN接口IP地址（支持CIDR格式，如：192.168.1.1/24）"
+      order: 10
+    vlan_ip_description:
+      type: "string"
+      required: false
+      max_length: 80
+      description: "VLAN接口描述"
+      order: 11
+  commands: |
+    {% if create_vlan and vlan_id %}
+    # 第一步：创建VLAN
+    {% if is_batch %}
+    {% for vlan in vlan_list %}
+    vlan {{ vlan }}
+    {% if vlan_name %}
+     name {{ vlan_name }}
+    {% endif %}
+    quit
+    {% endfor %}
+    {% else %}
+    vlan {{ vlan_id }}
+    {% if vlan_name %}
+     name {{ vlan_name }}
+    {% endif %}
+    quit
+    {% endif %}
+    {% endif %}
+
+    {% if configure_interface and interface and port_mode %}
+    # 第二步：配置接口VLAN
+    {% for port in port_list %}
+    interface {{ port }}
+    {% if port_mode == 'access' %}
+    port access vlan {{ pvid }}
+    {% elif port_mode == 'trunk' %}
+    port link-type trunk
+    {% if pvid %}
+    port trunk pvid vlan {{ pvid }}
+    {% endif %}
+    {% if trunk_vlans %}
+    port trunk permit vlan {{ trunk_vlans }}
+    {% else %}
+    port trunk permit vlan {{ vlan_id }}
+    {% endif %}
+    {% endif %}
+    quit
+    {% endfor %}
+    {% endif %}
+
+    {% if configure_vlan_ip and vlan_ip_address %}
+    # 第三步：可选的VLAN接口IP配置
+    interface Vlanif{{ vlan_id if not is_batch else vlan_list[0] }}
+    ip address {{ vlan_ip_address }} {{ vlan_subnet_mask }}
+    {% if vlan_ip_description %}
+    description {{ vlan_ip_description }}
+    {% endif %}
+    undo shutdown
+    quit
+    {% endif %}
+  example:
+    create_vlan: true
+    vlan_id: "100"
+    vlan_name: "office-network"
+    configure_interface: true
+    interface: "GigabitEthernet1/0/1-4"
+    port_mode: "access"
+    pvid: 100
+    configure_vlan_ip: true
+    vlan_ip_address: "192.168.100.1/24"
+    vlan_ip_description: "Office network gateway"
+
+port_aggregation:
+  description: "端口聚合配置"
+  parameters:
+    mode:
+      type: "string"
+      required: true
+      options: ["static", "dynamic"]
+      description: "聚合模式"
+      order: 1
+    lag_id:
+      type: "integer"
+      required: true
+      range: [1, 128]
+      description: "聚合组ID"
+      order: 2
+    description:
+      type: "string"
+      required: false
+      max_length: 80
+      description: "聚合接口描述"
+      order: 3
+    interfaces:
+      type: "string"
+      required: true
+      description: "聚合接口列表（支持范围，如：GigabitEthernet1/0/1-4）"
+      order: 4
+
+    # 负载均衡配置
+    configure_load_balance:
+      type: "boolean"
+      required: false
+      description: "是否配置负载均衡算法"
+      order: 5
+    load_balance_mode:
+      type: "string"
+      required: false
+      options: ["dst-ip", "dst-mac", "src-ip", "src-mac", "src-dst-ip", "src-dst-mac"]
+      description: "负载均衡算法"
+      order: 6
+
+    # LACP配置
+    configure_lacp_priority:
+      type: "boolean"
+      required: false
+      description: "是否配置LACP优先级"
+      order: 7
+    lacp_system_priority:
+      type: "integer"
+      required: false
+      min: 0
+      max: 65535
+      description: "LACP系统优先级（0-65535，默认32768）"
+      order: 8
+    lacp_port_priority:
+      type: "integer"
+      required: false
+      min: 0
+      max: 65535
+      description: "LACP端口优先级（0-65535，默认32768）"
+      order: 9
+
+    # LACP超时配置
+    configure_lacp_timeout:
+      type: "boolean"
+      required: false
+      description: "是否配置LACP超时模式"
+      order: 10
+    lacp_timeout:
+      type: "string"
+      required: false
+      options: ["fast", "slow"]
+      description: "LACP超时模式（fast: 1秒，slow: 30秒）"
+      order: 11
+
+    # 高级配置
+    configure_advanced:
+      type: "boolean"
+      required: false
+      description: "是否配置高级选项"
+      order: 12
+    min_active_links:
+      type: "integer"
+      required: false
+      min: 1
+      max: 8
+      description: "最小活动链路数"
+      order: 13
+  commands: |
+    # 配置LACP系统优先级（全局配置）
+    {% if configure_lacp_priority and lacp_system_priority is defined %}
+    lacp system-priority {{ lacp_system_priority }}
+    {% endif %}
+
+    # 创建聚合接口
+    interface bridge-aggregation {{ lag_id }}
+    {% if description %}
+     description {{ description }}
+    {% endif %}
+    {% if mode == 'dynamic' %}
+     link-aggregation mode dynamic
+    {% else %}
+     link-aggregation mode static
+    {% endif %}
+
+    # 配置负载均衡算法
+    {% if configure_load_balance and load_balance_mode %}
+     link-aggregation load-sharing mode {{ load_balance_mode }}
+    {% endif %}
+
+    # 配置最小活动链路数
+    {% if configure_advanced and min_active_links is defined %}
+     link-aggregation minimum-active {{ min_active_links }}
+    {% endif %}
+    quit
+
+    # 将成员接口加入聚合组并配置端口优先级
+    {% for port in member_port_list %}
+    interface {{ port }}
+     port link-aggregation group {{ lag_id }}
+    {% if configure_lacp_priority and lacp_port_priority is defined %}
+     lacp priority {{ lacp_port_priority }}
+    {% endif %}
+    {% if configure_lacp_timeout and lacp_timeout %}
+     lacp timeout {{ lacp_timeout }}
+    {% endif %}
+    quit
+    {% endfor %}
+  example:
+    mode: "dynamic"
+    lag_id: 1
+    description: "Server connection"
+    interfaces: "GigabitEthernet1/0/1-4"
+    configure_load_balance: true
+    load_balance_mode: "src-dst-ip"
+    configure_lacp_priority: true
+    lacp_system_priority: 32768
+    lacp_port_priority: 32768
+    configure_lacp_timeout: true
+    lacp_timeout: "fast"
+    configure_advanced: true
+    min_active_links: 2
+
+ospf_config:
+  description: "OSPF路由协议配置"
+  parameters:
+    process_id:
+      type: "integer"
+      required: true
+      range: [1, 65535]
+      description: "OSPF进程ID"
+      order: 1
+    router_id:
+      type: "string"
+      required: true
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "OSPF路由器ID（IP地址格式）"
+      order: 2
+    areas:
+      type: "string"
+      required: true
+      description: "OSPF区域和网络配置（格式：区域ID:网络地址/掩码，多个用逗号分隔）"
+      placeholder: "0.0.0.0:192.168.1.0/24,0.0.0.1:192.168.2.0/24"
+      order: 3
+
+    # 区域认证配置
+    configure_area_auth:
+      type: "boolean"
+      required: false
+      description: "是否配置区域认证"
+      order: 4
+    area_auth_type:
+      type: "string"
+      required: false
+      options: ["simple", "md5"]
+      description: "区域认证类型"
+      order: 5
+    area_auth_area:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "认证区域ID"
+      order: 6
+    area_auth_password:
+      type: "string"
+      required: false
+      max_length: 255
+      description: "认证密码"
+      order: 7
+
+    # 接口认证配置
+    configure_interface_auth:
+      type: "boolean"
+      required: false
+      description: "是否配置接口认证"
+      order: 8
+    interface_auth_interface:
+      type: "string"
+      required: false
+      description: "认证接口名称"
+      order: 9
+    interface_auth_type:
+      type: "string"
+      required: false
+      options: ["simple", "md5"]
+      description: "接口认证类型"
+      order: 10
+    interface_auth_password:
+      type: "string"
+      required: false
+      max_length: 255
+      description: "接口认证密码"
+      order: 11
+
+    # 高级配置
+    configure_advanced:
+      type: "boolean"
+      required: false
+      description: "是否配置高级选项"
+      order: 12
+    stub_area:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "Stub区域ID"
+      order: 13
+    nssa_area:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "NSSA区域ID"
+      order: 14
+    area_range:
+      type: "string"
+      required: false
+      description: "区域路由聚合（格式：区域ID:网络地址/掩码）"
+      placeholder: "0.0.0.1:192.168.0.0/22"
+      order: 15
+
+    # 接口配置
+    configure_interface:
+      type: "boolean"
+      required: false
+      description: "是否配置接口参数"
+      order: 16
+    interface_name:
+      type: "string"
+      required: false
+      description: "接口名称"
+      placeholder: "GigabitEthernet1/0/1"
+      order: 17
+    configure_interface_routing:
+      type: "boolean"
+      required: false
+      description: "是否将物理接口配置为路由模式"
+      order: 18
+    interface_cost:
+      type: "integer"
+      required: false
+      range: [1, 65535]
+      description: "接口开销值"
+      order: 19
+    interface_priority:
+      type: "integer"
+      required: false
+      range: [0, 255]
+      description: "接口优先级"
+      order: 20
+
+    # 定时器配置
+    configure_timers:
+      type: "boolean"
+      required: false
+      description: "是否配置OSPF定时器"
+      order: 21
+    hello_interval:
+      type: "integer"
+      required: false
+      range: [1, 65535]
+      description: "Hello间隔时间（秒）"
+      order: 22
+    dead_interval:
+      type: "integer"
+      required: false
+      range: [1, 65535]
+      description: "Dead间隔时间（秒）"
+      order: 23
+
+    # 路由引入配置
+    configure_redistribute:
+      type: "boolean"
+      required: false
+      description: "是否配置路由引入"
+      order: 24
+    redistribute_static:
+      type: "boolean"
+      required: false
+      description: "引入静态路由"
+      order: 25
+    redistribute_direct:
+      type: "boolean"
+      required: false
+      description: "引入直连路由"
+      order: 26
+    redistribute_rip:
+      type: "boolean"
+      required: false
+      description: "引入RIP路由"
+      order: 27
+    redistribute_bgp:
+      type: "boolean"
+      required: false
+      description: "引入BGP路由"
+      order: 28
+    redistribute_isis:
+      type: "boolean"
+      required: false
+      description: "引入ISIS路由"
+      order: 29
+    redistribute_cost:
+      type: "integer"
+      required: false
+      range: [1, 16777214]
+      description: "引入路由的开销值"
+      placeholder: "100"
+      order: 30
+    redistribute_type:
+      type: "string"
+      required: false
+      options: ["1", "2"]
+      description: "引入路由的类型（1=Type-1外部路由，2=Type-2外部路由）"
+      order: 31
+
+  commands: |
+    # 配置OSPF基本功能
+    router id {{ router_id }}
+    ospf {{ process_id }}
+
+    # 配置区域和网络
+    {% for area_network in area_network_list %}
+    area {{ area_network.area_id }}
+    network {{ area_network.network }} {{ area_network.wildcard }}
+    {% endfor %}
+
+    # 配置区域认证
+    {% if configure_area_auth and area_auth_type and area_auth_area and area_auth_password %}
+    area {{ area_auth_area }}
+    {% if area_auth_type == 'simple' %}
+    authentication-mode simple plain {{ area_auth_password }}
+    {% elif area_auth_type == 'md5' %}
+    authentication-mode md5 1 plain {{ area_auth_password }}
+    {% endif %}
+    {% endif %}
+
+    # 配置高级区域选项
+    {% if configure_advanced %}
+    {% if stub_area %}
+    area {{ stub_area }}
+    stub
+    {% endif %}
+    {% if nssa_area %}
+    area {{ nssa_area }}
+    nssa
+    {% endif %}
+    {% if area_range %}
+    {% set range_parts = area_range.split(':') %}
+    {% if range_parts|length == 2 %}
+    {% set area_id = range_parts[0] %}
+    {% set network_mask = range_parts[1].split('/') %}
+    {% if network_mask|length == 2 %}
+    area {{ area_id }}
+    abr-summary {{ network_mask[0] }} {{ network_mask[1] | cidr_to_netmask }}
+    {% endif %}
+    {% endif %}
+    {% endif %}
+    {% endif %}
+    quit
+
+    # 配置接口认证
+    {% if configure_interface_auth and interface_auth_interface and interface_auth_type and interface_auth_password %}
+    interface {{ interface_auth_interface }}
+    {% if configure_interface_routing and interface_auth_interface == interface_name %}
+    # 配置接口为路由模式
+    port link-mode route
+    {% endif %}
+    {% if interface_auth_type == 'simple' %}
+    ospf authentication
+    ospf authentication-key {{ interface_auth_password }}
+    {% elif interface_auth_type == 'md5' %}
+    ospf authentication message-digest
+    ospf message-digest-key 1 md5 {{ interface_auth_password }}
+    {% endif %}
+    quit
+    {% endif %}
+
+    # 配置接口参数
+    {% if configure_interface and interface_name %}
+    interface {{ interface_name }}
+    {% if configure_interface_routing %}
+    # 配置接口为路由模式
+    port link-mode route
+    {% endif %}
+    {% if interface_cost %}
+    ospf cost {{ interface_cost }}
+    {% endif %}
+    {% if interface_priority %}
+    ospf dr-priority {{ interface_priority }}
+    {% endif %}
+    {% if configure_timers %}
+    {% if hello_interval %}
+    ospf timer hello {{ hello_interval }}
+    {% endif %}
+    {% if dead_interval %}
+    ospf timer dead {{ dead_interval }}
+    {% endif %}
+    {% endif %}
+    quit
+    {% endif %}
+
+    # 配置路由引入（在OSPF进程内）
+    {% if configure_redistribute %}
+    ospf {{ process_id }}
+    {% if redistribute_static %}
+    import-route static{% if redistribute_cost %} cost {{ redistribute_cost }}{% endif %}{% if redistribute_type %} type {{ redistribute_type }}{% endif %}
+    {% endif %}
+    {% if redistribute_direct %}
+    import-route direct{% if redistribute_cost %} cost {{ redistribute_cost }}{% endif %}{% if redistribute_type %} type {{ redistribute_type }}{% endif %}
+    {% endif %}
+    {% if redistribute_rip %}
+    import-route rip{% if redistribute_cost %} cost {{ redistribute_cost }}{% endif %}{% if redistribute_type %} type {{ redistribute_type }}{% endif %}
+    {% endif %}
+    {% if redistribute_bgp %}
+    import-route bgp{% if redistribute_cost %} cost {{ redistribute_cost }}{% endif %}{% if redistribute_type %} type {{ redistribute_type }}{% endif %}
+    {% endif %}
+    {% if redistribute_isis %}
+    import-route isis{% if redistribute_cost %} cost {{ redistribute_cost }}{% endif %}{% if redistribute_type %} type {{ redistribute_type }}{% endif %}
+    {% endif %}
+    quit
+    {% endif %}
+
+  example:
+    process_id: 1
+    router_id: "1.1.1.1"
+    areas: "0.0.0.0:192.168.1.0/24,0.0.0.1:192.168.2.0/24"
+    configure_area_auth: true
+    area_auth_type: "md5"
+    area_auth_area: "0.0.0.1"
+    area_auth_password: "ospfauth123"
+    configure_interface_auth: true
+    interface_auth_interface: "Vlan-interface1"
+    interface_auth_type: "md5"
+    interface_auth_password: "intfauth123"
+    configure_advanced: true
+    stub_area: "0.0.0.2"
+    area_range: "0.0.0.1:192.168.0.0/22"
+    configure_interface: true
+    interface_name: "Vlan-interface1"
+    configure_interface_routing: false
+    interface_cost: 100
+    interface_priority: 1
+    configure_timers: true
+    hello_interval: 10
+    dead_interval: 40
+    configure_redistribute: true
+    redistribute_static: true
+    redistribute_direct: true
+    redistribute_cost: 100
+    redistribute_type: "2"
+
+dhcp_service:
+  description: "DHCP服务配置"
+  parameters:
+    pool_name:
+      type: "string"
+      required: true
+      max_length: 32
+      description: "DHCP池名称"
+      order: 1
+    network:
+      type: "string"
+      required: true
+      description: "网络地址（支持CIDR格式，如：192.168.1.0/24）"
+      order: 2
+    mask:
+      type: "string"
+      required: false
+      description: "子网掩码（可选，CIDR格式时自动计算）"
+      order: 3
+    gateway:
+      type: "string"
+      required: false
+      description: "默认网关"
+      order: 4
+    dns_servers:
+      type: "string"
+      required: false
+      description: "DNS服务器列表（逗号分隔）"
+      order: 5
+    excluded_addresses:
+      type: "string"
+      required: false
+      description: "排除地址（支持范围，如：192.168.1.1-192.168.1.10,192.168.1.100）"
+      order: 6
+    lease_time:
+      type: "string"
+      required: false
+      description: "租约时间（格式：天 小时 分钟，如：1 0 0）"
+      order: 7
+
+    # 新增接口配置参数
+    enable_interface:
+      type: "boolean"
+      required: false
+      default: false
+      description: "是否在接口上启用DHCP服务"
+      order: 8
+    interface:
+      type: "string"
+      required: false
+      description: "接口名称（如：Vlanif100）"
+      order: 9
+  commands: |
+    # 启用全局DHCP服务
+    dhcp enable
+
+    # 配置排除地址（全局）
+    {% if excluded_cmds %}
+    {% for addr in excluded_cmds %}
+    {% if addr[1] %}
+    dhcp server forbidden-ip {{ addr[0] }} {{ addr[1] }}
+    {% else %}
+    dhcp server forbidden-ip {{ addr[0] }}
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    # 创建DHCP地址池
+    dhcp server ip-pool {{ pool_name }}
+     network {{ network }} mask {{ mask }}
+    {% if gateway %}
+     gateway-list {{ gateway }}
+    {% endif %}
+    {% if dns_servers %}
+     dns-list {{ dns_servers.replace(',', ' ').replace('  ', ' ').strip() }}
+    {% endif %}
+    {% if lease_time %}
+     expired day {{ lease_time }}
+    {% endif %}
+    quit
+
+    # 在接口上启用DHCP服务（可选）
+    {% if enable_interface and interface %}
+    interface {{ interface }}
+    dhcp select global
+    quit
+    {% endif %}
+  example:
+    pool_name: "vlan100-pool"
+    network: "192.168.100.0/24"
+    gateway: "192.168.100.1"
+    dns_servers: "8.8.8.8,8.8.4.4"
+    excluded_addresses: "192.168.100.1-192.168.100.10,192.168.100.100"
+    enable_interface: true
+    interface: "Vlanif100"
+
+static_route:
+  description: "静态路由配置"
+  parameters:
+    destination:
+      type: "string"
+      required: true
+      description: "目标网络"
+    mask:
+      type: "string"
+      required: true
+      description: "子网掩码"
+    next_hop:
+      type: "string"
+      required: true
+      description: "下一跳地址"
+    preference:
+      type: "integer"
+      required: false
+      default: 60
+      range: [1, 255]
+      description: "路由优先级"
+    description:
+      type: "string"
+      required: false
+      max_length: 80
+      description: "路由描述"
+  commands: |
+    ip route-static {{ destination }} {{ mask }} {{ next_hop }} preference {{ preference }}{% if description %} description {{ description }}{% endif %}
+  example:
+    destination: "10.0.0.0"
+    mask: "255.0.0.0"
+    next_hop: "192.168.1.1"
+    preference: 60
+
+interface_ip:
+  description: "接口IP地址配置"
+  parameters:
+    interface:
+      type: "string"
+      required: true
+      description: "接口名称（支持范围，如：GigabitEthernet1/0/1-4）"
+    ip_address:
+      type: "string"
+      required: true
+      description: "IP地址（支持CIDR格式，如：192.168.1.1/24）"
+    subnet_mask:
+      type: "string"
+      required: false
+      description: "子网掩码（可选，CIDR格式时自动计算）"
+    description:
+      type: "string"
+      required: false
+      max_length: 80
+      description: "接口描述"
+  commands: |
+    {% for port in port_list %}
+    interface {{ port }}
+    ip address {{ ip_address }} {{ subnet_mask }}
+    {% if description %}
+     description {{ description }}
+    {% endif %}
+    undo shutdown
+    quit
+    {% endfor %}
+  example:
+    interface: "GigabitEthernet1/0/1"
+    ip_address: "192.168.1.1/24"
+    description: "LAN interface"
+
+stp_config:
+  description: "生成树协议配置"
+  parameters:
+    # 必选配置 - 基本模式
+    stp_mode:
+      type: "string"
+      required: true
+      options: ["rstp", "mstp"]
+      description: "生成树协议模式"
+      order: 1
+    global_enable:
+      type: "boolean"
+      required: false
+      default: true
+      description: "全局使能生成树协议"
+      order: 2
+
+    # 根桥配置
+    root_primary:
+      type: "boolean"
+      required: false
+      description: "配置为根桥"
+      order: 3
+    root_secondary:
+      type: "boolean"
+      required: false
+      description: "配置为备份根桥"
+      order: 3
+    bridge_priority:
+      type: "integer"
+      required: false
+      range: [0, 61440]
+      description: "桥优先级（步长4096）"
+      order: 6
+
+    # 时间参数配置开关
+    configure_timing_params:
+      type: "boolean"
+      required: false
+      default: false
+      description: "是否配置影响RSTP/MSTP拓扑收敛的参数"
+      order: 20
+
+    # 时间参数配置
+    hello_time:
+      type: "integer"
+      required: false
+      range: [1, 10]
+      description: "Hello时间（秒）"
+      order: 21
+    forward_delay:
+      type: "integer"
+      required: false
+      range: [4, 30]
+      description: "转发延迟时间（秒）"
+      order: 22
+    max_age:
+      type: "integer"
+      required: false
+      range: [6, 40]
+      description: "最大老化时间（秒）"
+      order: 23
+
+    # MSTP域配置
+    region_name:
+      type: "string"
+      required: false
+      max_length: 32
+      description: "MST域名称"
+      order: 9
+    revision_level:
+      type: "integer"
+      required: false
+      range: [0, 65535]
+      description: "修订级别"
+      order: 10
+    instance_vlan_mapping:
+      type: "string"
+      required: false
+      description: "实例VLAN映射（如：1:10,20;2:30,40）"
+      order: 11
+    instance_id:
+      type: "integer"
+      required: false
+      range: [1, 64]
+      description: "MSTP实例ID"
+      order: 12
+
+
+
+    # 端口配置开关
+    configure_port_blocking:
+      type: "boolean"
+      required: false
+      default: false
+      description: "是否配置端口阻塞"
+      order: 27
+
+    # 接口配置
+    interface:
+      type: "string"
+      required: false
+      description: "接口名称（支持范围，如：GigabitEthernet1/0/1-4）"
+      order: 28
+    port_cost:
+      type: "integer"
+      required: false
+      range: [1, 200000000]
+      description: "端口路径开销"
+      order: 29
+    edge_port:
+      type: "boolean"
+      required: false
+      description: "配置边缘端口"
+      order: 17
+    edge_port_interface:
+      type: "string"
+      required: false
+      description: "边缘端口接口（支持范围，如：GigabitEthernet1/0/1-4）"
+      order: 18
+
+    # 全局BPDU保护功能
+    bpdu_protection:
+      type: "boolean"
+      required: false
+      description: "全局使能BPDU保护"
+      order: 4
+    root_protection:
+      type: "boolean"
+      required: false
+      description: "根保护功能"
+      order: 19
+    root_protection_interface:
+      type: "string"
+      required: false
+      description: "根保护接口（支持范围，如：GigabitEthernet1/0/5-8）"
+      order: 20
+    loop_protection:
+      type: "boolean"
+      required: false
+      description: "环路保护功能"
+      order: 21
+    loop_protection_interface:
+      type: "string"
+      required: false
+      description: "环路保护接口（支持范围，如：GigabitEthernet1/0/9-12）"
+      order: 22
+  commands: |
+    {% if stp_mode %}
+    stp mode {{ stp_mode }}
+    {% endif %}
+
+    {% if global_enable %}
+    stp global enable
+    {% else %}
+    undo stp global enable
+    {% endif %}
+
+    {% if stp_mode == 'mstp' and region_name %}
+    stp region-configuration
+    {% if region_name %}
+     region-name {{ region_name }}
+    {% endif %}
+    {% if revision_level is defined %}
+     revision-level {{ revision_level }}
+    {% endif %}
+    {% if instance_vlan_mapping %}
+    {% for mapping in instance_vlan_mapping.split(';') %}
+    {% set instance, vlans = mapping.split(':') %}
+     instance {{ instance }} vlan {{ vlans }}
+    {% endfor %}
+    {% endif %}
+     active region-configuration
+    quit
+    {% endif %}
+
+    {% if bridge_priority is defined %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+    stp instance {{ instance_id }} priority {{ bridge_priority }}
+    {% else %}
+    stp priority {{ bridge_priority }}
+    {% endif %}
+    {% endif %}
+
+    {% if root_primary %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+    stp instance {{ instance_id }} root primary
+    {% else %}
+    stp root primary
+    {% endif %}
+    {% endif %}
+
+    {% if root_secondary %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+    stp instance {{ instance_id }} root secondary
+    {% else %}
+    stp root secondary
+    {% endif %}
+    {% endif %}
+
+    {% if hello_time is defined %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+    stp instance {{ instance_id }} timer hello {{ hello_time }}
+    {% else %}
+    stp timer hello {{ hello_time }}
+    {% endif %}
+    {% endif %}
+
+    {% if forward_delay is defined %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+    stp instance {{ instance_id }} timer forward-delay {{ forward_delay }}
+    {% else %}
+    stp timer forward-delay {{ forward_delay }}
+    {% endif %}
+    {% endif %}
+
+    {% if max_age is defined %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+    stp instance {{ instance_id }} timer max-age {{ max_age }}
+    {% else %}
+    stp timer max-age {{ max_age }}
+    {% endif %}
+    {% endif %}
+
+
+
+    {% if bpdu_protection %}
+    stp bpdu-protection
+    {% endif %}
+
+    {% if configure_port_blocking and interface %}
+    {% for port in port_list %}
+    interface {{ port }}
+    {% if port_cost is defined %}
+    {% if stp_mode == 'mstp' and instance_id is defined %}
+     stp instance {{ instance_id }} cost {{ port_cost }}
+    {% else %}
+     stp cost {{ port_cost }}
+    {% endif %}
+    {% endif %}
+    quit
+    {% endfor %}
+    {% endif %}
+
+    {% if edge_port and edge_port_interface %}
+    {% for port in edge_port_list %}
+    interface {{ port }}
+     stp edged-port
+    quit
+    {% endfor %}
+    {% endif %}
+
+    {% if root_protection and root_protection_interface %}
+    {% for port in root_protection_port_list %}
+    interface {{ port }}
+     stp root-protection
+    quit
+    {% endfor %}
+    {% endif %}
+
+    {% if loop_protection and loop_protection_interface %}
+    {% for port in loop_protection_port_list %}
+    interface {{ port }}
+     stp loop-protection
+    quit
+    {% endfor %}
+    {% endif %}
+  example:
+    stp_mode: "mstp"
+    global_enable: true
+    root_bridge_config: "primary"
+    bpdu_protection: false
+    bridge_priority: 4096
+    region_name: "example"
+    revision_level: 0
+    instance_vlan_mapping: "1:10,20;2:30,40"
+    instance_id: 1
+    configure_timing_params: true
+    hello_time: 2
+    forward_delay: 15
+    max_age: 20
+    configure_port_blocking: true
+    interface: "GigabitEthernet1/0/1-4"
+    port_cost: 20000
+    edge_port: true
+    edge_port_interface: "GigabitEthernet1/0/5-8"
+    root_protection: true
+    root_protection_interface: "GigabitEthernet1/0/9-12"
