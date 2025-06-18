@@ -35,7 +35,7 @@
 ## 🚀 快速开始
 
 ### 环境要求
-- Python 3.8 或更高版本
+- Python 3.9.13或更高版本
 - 现代Web浏览器（Chrome、Firefox、Safari、Edge）
 
 ### 安装步骤
