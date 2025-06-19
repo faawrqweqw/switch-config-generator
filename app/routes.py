@@ -586,6 +586,11 @@ def process_smart_inputs(config_type, vendor, form_data):
         if 'excluded_addresses' in form_data:
             processed['excluded_cmds'] = process_excluded_addresses(form_data['excluded_addresses'])
 
+        # 处理DHCP中继配置
+        if form_data.get('enable_dhcp_relay') and 'relay_server_address' in form_data:
+            relay_servers = [addr.strip() for addr in form_data['relay_server_address'].split(',') if addr.strip()]
+            processed['relay_server_list'] = relay_servers
+
         # 处理租期时间 - 支持"天 小时 分钟"格式
         if 'lease_time' in form_data and form_data['lease_time']:
             lease_time_str = form_data['lease_time'].strip()

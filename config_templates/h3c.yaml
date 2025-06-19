@@ -610,42 +610,50 @@ ospf_config:
 dhcp_service:
   description: "DHCP服务配置"
   parameters:
+    # DHCP服务器配置开关
+    enable_dhcp_server:
+      type: "boolean"
+      required: false
+      default: false
+      description: "是否配置DHCP服务器"
+      order: 1
+
     pool_name:
       type: "string"
       required: true
       max_length: 32
       description: "DHCP池名称"
-      order: 1
+      order: 2
     network:
       type: "string"
       required: true
       description: "网络地址（支持CIDR格式，如：192.168.1.0/24）"
-      order: 2
+      order: 3
     mask:
       type: "string"
       required: false
       description: "子网掩码（可选，CIDR格式时自动计算）"
-      order: 3
+      order: 4
     gateway:
       type: "string"
       required: false
       description: "默认网关"
-      order: 4
+      order: 5
     dns_servers:
       type: "string"
       required: false
       description: "DNS服务器列表（逗号分隔）"
-      order: 5
+      order: 6
     excluded_addresses:
       type: "string"
       required: false
       description: "排除地址（支持范围，如：192.168.1.1-192.168.1.10,192.168.1.100）"
-      order: 6
+      order: 7
     lease_time:
       type: "string"
       required: false
       description: "租约时间（格式：天 小时 分钟，如：1 0 0）"
-      order: 7
+      order: 8
 
     # 新增接口配置参数
     enable_interface:
@@ -653,13 +661,32 @@ dhcp_service:
       required: false
       default: false
       description: "是否在接口上启用DHCP服务"
-      order: 8
+      order: 9
     interface:
       type: "string"
       required: false
       description: "接口名称（如：Vlanif100）"
-      order: 9
+      order: 10
+
+    # DHCP中继配置参数
+    enable_dhcp_relay:
+      type: "boolean"
+      required: false
+      default: false
+      description: "是否配置DHCP中继"
+      order: 11
+    relay_server_address:
+      type: "string"
+      required: false
+      description: "DHCP服务器地址（多个地址用逗号分隔）"
+      order: 12
+    relay_interface:
+      type: "string"
+      required: false
+      description: "中继接口名称（如：Vlanif100）"
+      order: 13
   commands: |
+    {% if enable_dhcp_server %}
     # 启用全局DHCP服务
     dhcp enable
 
@@ -692,6 +719,16 @@ dhcp_service:
     {% if enable_interface and interface %}
     interface {{ interface }}
     dhcp select global
+    quit
+    {% endif %}
+    {% endif %}
+
+    # DHCP中继配置
+    {% if enable_dhcp_relay and relay_server_address and relay_interface %}
+    interface {{ relay_interface }}
+    {% for server in relay_server_list %}
+    dhcp relay server-address {{ server }}
+    {% endfor %}
     quit
     {% endif %}
   example:

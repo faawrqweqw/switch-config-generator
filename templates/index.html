@@ -227,16 +227,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentConfigType = configTypeSelect ? configTypeSelect.value : '';
 
         for (const [paramName, paramConfig] of sortedParams) {
-            // 华为DHCP服务特殊处理：初始只显示dhcp_type参数
-            if (currentVendor === 'huawei' && currentConfigType === 'dhcp_service' && paramName !== 'dhcp_type') {
-                // 对于非dhcp_type参数，初始隐藏，由切换函数控制显示
-                const dhcpTypeRadio = document.querySelector('input[name="dhcp_type"]:checked');
-                const selectedDhcpType = dhcpTypeRadio ? dhcpTypeRadio.value : null;
-
-                if (!selectedDhcpType || !shouldShowHuaweiDhcpParameter(paramName, selectedDhcpType)) {
-                    continue;
-                }
-            }
+            // 华为DHCP服务特殊处理：先渲染所有参数，然后通过CSS控制显示
+            // 不在这里跳过参数，而是在后面通过toggleHuaweiDhcpFields函数控制显示
 
             const formGroup = document.createElement('div');
             formGroup.className = 'mb-3';
@@ -268,10 +260,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // DHCP服务特殊处理
             else if (currentConfigType === 'dhcp_service') {
-                if (paramName === 'enable_interface') {
+                if (paramName === 'enable_dhcp_server') {
+                    inputHtml = createDhcpServerToggle(paramName, paramConfig);
+                } else if (paramName === 'enable_interface') {
                     inputHtml = createDhcpInterfaceToggle(paramName, paramConfig);
+                } else if (paramName === 'enable_dhcp_relay') {
+                    inputHtml = createDhcpRelayToggle(paramName, paramConfig);
                 } else if (paramName === 'dhcp_type' && currentVendor === 'huawei') {
                     inputHtml = createHuaweiDhcpTypeToggle(paramName, paramConfig);
+                } else if (isInterfaceParameter(paramName, paramConfig)) {
+                    inputHtml = createInterfaceComboInput(paramName, paramConfig, requiredAttr, requiredLabel, currentVendor);
                 }
             }
             // 聚合接口特殊处理：开关控制
@@ -471,25 +469,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 如果是VLAN一体化配置，初始化字段的显示状态
         if (currentConfigType === 'vlan_complete_config') {
-            // 初始显示VLAN创建字段，因为create_vlan开关默认是开启的
-            toggleVlanCreateFields(true);
-            // 初始显示接口配置字段，因为configure_interface开关默认是开启的
-            toggleInterfaceConfigFields(true);
+            // 初始隐藏VLAN创建字段，因为create_vlan开关默认是关闭的
+            toggleVlanCreateFields(false);
+            // 初始隐藏接口配置字段，因为configure_interface开关默认是关闭的
+            toggleInterfaceConfigFields(false);
             // 初始隐藏VLAN IP相关字段，因为configure_vlan_ip开关默认是关闭的
             toggleVlanIpFields(false);
             // 初始隐藏端口模式相关字段，因为还没有选择端口模式
             togglePortModeFields('');
         }
 
-        // 如果是DHCP配置，初始化接口字段的显示状态
+        // 如果是DHCP配置，初始化字段的显示状态
         if (currentConfigType === 'dhcp_service') {
-            // 对于非华为厂商，初始隐藏接口字段
-            if (currentVendor !== 'huawei') {
-                const interfaceField = document.querySelector('[data-param="interface"]');
-                if (interfaceField) {
-                    interfaceField.style.display = 'none';
-                }
+            const currentVendor = document.getElementById('vendor').value;
+
+            if (currentVendor === 'huawei') {
+                // 华为厂商使用特殊的显示逻辑
+                toggleHuaweiDhcpFields('global'); // 默认全局模式
+            } else {
+                // 其他厂商使用通用逻辑
+                toggleDhcpServerFields(false);
             }
+
+            // 初始隐藏DHCP中继相关字段，因为开关默认是关闭的
+            toggleDhcpRelayFields(false);
         }
 
         // 如果是聚合接口配置，初始化开关字段的显示状态
@@ -1358,7 +1361,63 @@ document.addEventListener('DOMContentLoaded', function() {
         // 清除URL参数
         window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    // 初始化开关状态
+    initializeSwitchStates();
 });
+
+// 初始化开关状态（全局函数）
+window.initializeSwitchStates = function() {
+    // 初始化DHCP中继相关字段为隐藏状态
+    const dhcpRelayFields = ['relay_server_address', 'relay_interface'];
+    dhcpRelayFields.forEach(paramName => {
+        const paramGroup = document.querySelector(`[data-param="${paramName}"]`);
+        if (paramGroup) {
+            paramGroup.style.display = 'none';
+        }
+    });
+
+    // 初始化其他开关控制的字段为隐藏状态
+    const switchControlledFields = [
+        // DHCP接口字段
+        'interface',
+        // STP时间参数字段
+        'hello_time', 'forward_delay', 'max_age',
+        // STP端口配置字段
+        'port_cost',
+        // 聚合接口配置字段
+        'load_balance_algorithm', 'lacp_system_priority', 'lacp_port_priority', 'lacp_timeout_mode'
+    ];
+
+    switchControlledFields.forEach(paramName => {
+        const paramGroup = document.querySelector(`[data-param="${paramName}"]`);
+        if (paramGroup) {
+            // 检查是否有对应的开关控制
+            const relatedSwitch = findRelatedSwitch(paramName);
+            if (relatedSwitch && !relatedSwitch.checked) {
+                paramGroup.style.display = 'none';
+            }
+        }
+    });
+}
+
+// 查找相关的开关控件（全局函数）
+window.findRelatedSwitch = function(paramName) {
+    const switchMappings = {
+        'interface': 'enable_interface',
+        'hello_time': 'configure_timing_params',
+        'forward_delay': 'configure_timing_params',
+        'max_age': 'configure_timing_params',
+        'port_cost': 'configure_port_blocking',
+        'load_balance_algorithm': 'configure_load_balance',
+        'lacp_system_priority': 'configure_lacp_priority',
+        'lacp_port_priority': 'configure_lacp_priority',
+        'lacp_timeout_mode': 'configure_lacp_timeout'
+    };
+
+    const switchId = switchMappings[paramName];
+    return switchId ? document.getElementById(switchId) : null;
+}
 
 // 保存表单数据
 function saveFormData() {
@@ -1658,7 +1717,7 @@ window.createVlanCreateToggle = function(paramName, paramConfig) {
     return `
         <label class="form-label">${description}</label>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" checked onchange="toggleVlanCreateFields(this.checked)">
+            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" onchange="toggleVlanCreateFields(this.checked)">
             <label class="form-check-label" for="${paramName}">创建VLAN</label>
         </div>
         <div class="form-help">
@@ -1674,7 +1733,7 @@ window.createInterfaceConfigToggle = function(paramName, paramConfig) {
     return `
         <label class="form-label">${description}</label>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" checked onchange="toggleInterfaceConfigFields(this.checked)">
+            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" onchange="toggleInterfaceConfigFields(this.checked)">
             <label class="form-check-label" for="${paramName}">配置接口VLAN</label>
         </div>
         <div class="form-help">
@@ -1795,6 +1854,85 @@ window.toggleDhcpInterfaceFields = function(enabled) {
             }
         }
     }
+}
+
+// 创建DHCP服务器开关（全局）
+window.createDhcpServerToggle = function(paramName, paramConfig) {
+    const description = paramConfig.description || paramName;
+
+    return `
+        <label class="form-label">${description}</label>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" onchange="toggleDhcpServerFields(this.checked)">
+            <label class="form-check-label" for="${paramName}">启用DHCP服务器</label>
+        </div>
+        <div class="form-help">
+            <small class="text-muted">启用后可以配置DHCP服务器相关参数</small>
+        </div>
+    `;
+}
+
+// 创建DHCP中继开关（全局）
+window.createDhcpRelayToggle = function(paramName, paramConfig) {
+    const description = paramConfig.description || paramName;
+
+    return `
+        <label class="form-label">${description}</label>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" onchange="toggleDhcpRelayFields(this.checked)">
+            <label class="form-check-label" for="${paramName}">启用DHCP中继</label>
+        </div>
+        <div class="form-help">
+            <small class="text-muted">启用后可以配置DHCP中继服务器地址和中继接口</small>
+        </div>
+    `;
+}
+
+// 切换DHCP服务器相关字段的显示/隐藏（全局）
+window.toggleDhcpServerFields = function(enabled) {
+    const currentVendor = document.getElementById('vendor').value;
+
+    if (currentVendor === 'huawei') {
+        // 华为厂商使用特殊的显示逻辑
+        const dhcpTypeRadio = document.querySelector('input[name="dhcp_type"]:checked');
+        const dhcpType = dhcpTypeRadio ? dhcpTypeRadio.value : 'global';
+        toggleHuaweiDhcpFields(dhcpType);
+    } else {
+        // 其他厂商的DHCP服务器参数
+        const serverParams = ['pool_name', 'network', 'mask', 'gateway', 'dns_servers', 'excluded_addresses',
+                             'lease_time', 'enable_interface', 'interface'];
+
+        serverParams.forEach(paramName => {
+            const paramGroup = document.querySelector(`[data-param="${paramName}"]`);
+            if (paramGroup) {
+                paramGroup.style.display = enabled ? 'block' : 'none';
+
+                // 如果隐藏，清空输入值
+                if (!enabled) {
+                    const input = paramGroup.querySelector('input, select');
+                    if (input) input.value = '';
+                }
+            }
+        });
+    }
+}
+
+// 切换DHCP中继相关字段的显示/隐藏（全局）
+window.toggleDhcpRelayFields = function(enabled) {
+    const relatedParams = ['relay_server_address', 'relay_interface'];
+
+    relatedParams.forEach(paramName => {
+        const paramGroup = document.querySelector(`[data-param="${paramName}"]`);
+        if (paramGroup) {
+            paramGroup.style.display = enabled ? 'block' : 'none';
+
+            // 如果隐藏，清空输入值
+            if (!enabled) {
+                const input = paramGroup.querySelector('input, select');
+                if (input) input.value = '';
+            }
+        }
+    });
 }
 
 // 切换端口模式相关字段的显示/隐藏（全局）
@@ -2269,7 +2407,17 @@ window.shouldShowHuaweiDhcpParameter = function(paramName, dhcpType) {
         return true;
     }
 
-    // 通用参数（两种模式都显示）
+    // DHCP服务器开关始终显示
+    if (paramName === 'enable_dhcp_server') {
+        return true;
+    }
+
+    // DHCP中继相关参数单独处理，不属于通用参数
+    if (paramName === 'enable_dhcp_relay' || paramName === 'relay_server_address' || paramName === 'relay_interface') {
+        return false; // 这些参数由DHCP中继开关单独控制
+    }
+
+    // 通用参数（两种模式都显示，但需要DHCP服务器开关开启）
     const commonParams = ['gateway', 'dns_servers', 'excluded_addresses', 'lease_time'];
     if (commonParams.includes(paramName)) {
         return true;
@@ -2294,6 +2442,10 @@ window.shouldShowHuaweiDhcpParameter = function(paramName, dhcpType) {
 window.toggleHuaweiDhcpFields = function(dhcpType) {
     console.log('切换华为DHCP类型到:', dhcpType);
 
+    // 检查DHCP服务器开关状态
+    const dhcpServerSwitch = document.getElementById('enable_dhcp_server');
+    const dhcpServerEnabled = dhcpServerSwitch ? dhcpServerSwitch.checked : false;
+
     // 直接动态显示/隐藏参数，不重新渲染整个表单
     const parametersContainer = document.getElementById('parametersContainer');
     const allParams = parametersContainer.querySelectorAll('[data-param]');
@@ -2301,21 +2453,29 @@ window.toggleHuaweiDhcpFields = function(dhcpType) {
     allParams.forEach(paramGroup => {
         const paramName = paramGroup.getAttribute('data-param');
 
-        if (paramName === 'dhcp_type') {
-            // dhcp_type参数始终显示
+        if (paramName === 'enable_dhcp_server') {
+            // DHCP服务器开关始终显示
             paramGroup.style.display = 'block';
+        } else if (paramName === 'dhcp_type') {
+            // dhcp_type参数只在DHCP服务器开启时显示
+            paramGroup.style.display = dhcpServerEnabled ? 'block' : 'none';
+        } else if (paramName === 'enable_dhcp_relay' || paramName === 'relay_server_address' || paramName === 'relay_interface') {
+            // DHCP中继相关参数不受DHCP服务器开关影响，由DHCP中继开关单独控制
+            // 这里不做任何处理，保持当前状态
+            console.log(`参数 ${paramName}: 保持当前状态 (由DHCP中继开关控制)`);
         } else {
-            // 根据DHCP类型决定是否显示其他参数
+            // 根据DHCP类型和服务器开关状态决定是否显示其他参数
             const shouldShow = shouldShowHuaweiDhcpParameter(paramName, dhcpType);
-            paramGroup.style.display = shouldShow ? 'block' : 'none';
+            const finalShow = shouldShow && dhcpServerEnabled;
+            paramGroup.style.display = finalShow ? 'block' : 'none';
 
             // 如果隐藏参数，清空其值
-            if (!shouldShow) {
+            if (!finalShow) {
                 const input = paramGroup.querySelector('input, select');
                 if (input) input.value = '';
             }
 
-            console.log(`参数 ${paramName}: ${shouldShow ? '显示' : '隐藏'} (${dhcpType}模式)`);
+            console.log(`参数 ${paramName}: ${finalShow ? '显示' : '隐藏'} (${dhcpType}模式, 服务器开关: ${dhcpServerEnabled})`);
         }
     });
 }
