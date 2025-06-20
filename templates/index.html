@@ -173,6 +173,9 @@ document.addEventListener('DOMContentLoaded', function() {
         parametersContainer.innerHTML = '';
         parametersSection.style.display = 'none';
         generateBtn.disabled = true;
+
+        // 如果当前是VLAN配置且已选择trunk模式，更新PVID标签
+        updateVlanLabelsForVendor(vendor);
     });
 
     // 配置类型选择变化事件
@@ -286,7 +289,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // OSPF特殊处理：开关控制
             else if (currentConfigType === 'ospf_config') {
-                if (paramName === 'configure_area_auth') {
+                if (paramName === 'config_wizard') {
+                    inputHtml = createOspfWizardToggle(paramName, paramConfig);
+                } else if (paramName === 'scenario_type') {
+                    inputHtml = createOspfScenarioSelect(paramName, paramConfig);
+                } else if (paramName === 'router_role') {
+                    inputHtml = createOspfRoleSelect(paramName, paramConfig);
+                } else if (paramName === 'enable_basic_config') {
+                    inputHtml = createOspfToggle(paramName, paramConfig, '基础OSPF配置', '启用后可以配置OSPF进程ID、Router ID和区域');
+                } else if (paramName === 'configure_area_auth') {
                     inputHtml = createOspfToggle(paramName, paramConfig, '区域认证配置', '启用后可以配置OSPF区域认证');
                 } else if (paramName === 'configure_interface_auth') {
                     inputHtml = createOspfToggle(paramName, paramConfig, '接口认证配置', '启用后可以配置OSPF接口认证');
@@ -296,8 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     inputHtml = createOspfToggle(paramName, paramConfig, '接口参数配置', '启用后可以配置接口开销、优先级等参数');
                 } else if (paramName === 'configure_timers') {
                     inputHtml = createOspfToggle(paramName, paramConfig, '定时器配置', '启用后可以配置Hello间隔和Dead间隔');
-                } else if (paramName === 'configure_interface_routing') {
-                    inputHtml = createOspfToggle(paramName, paramConfig, '接口路由模式配置', '启用后将物理接口配置为路由模式，支持OSPF配置');
+
                 } else if (paramName === 'configure_redistribute') {
                     inputHtml = createOspfToggle(paramName, paramConfig, '路由引入配置', '启用后可以将其他路由协议的路由引入到OSPF中');
                 }
@@ -410,6 +420,37 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="form-help">${helpText}</div>
                     <div class="invalid-feedback" id="${paramName}_error"></div>
                 `;
+            } else if (!inputHtml && paramConfig.type === 'boolean') {
+                // 布尔类型：使用按钮选择而不是文本输入
+                const defaultValue = paramConfig.default;
+                const trueSelected = defaultValue === true ? 'checked' : '';
+                const falseSelected = defaultValue === false ? 'checked' : '';
+                const noneSelected = defaultValue === undefined ? 'checked' : '';
+
+                inputHtml = `
+                    <label class="form-label">${paramConfig.description || paramName} ${requiredLabel}</label>
+                    <div class="btn-group w-100" role="group" aria-label="${paramName}选择">
+                        <input type="radio" class="btn-check" name="${paramName}" id="${paramName}_true" value="true" ${trueSelected} autocomplete="off">
+                        <label class="btn btn-outline-success" for="${paramName}_true">
+                            <i class="fas fa-check me-1"></i>是
+                        </label>
+
+                        <input type="radio" class="btn-check" name="${paramName}" id="${paramName}_false" value="false" ${falseSelected} autocomplete="off">
+                        <label class="btn btn-outline-danger" for="${paramName}_false">
+                            <i class="fas fa-times me-1"></i>否
+                        </label>
+
+                        ${!isRequired ? `
+                        <input type="radio" class="btn-check" name="${paramName}" id="${paramName}_none" value="" ${noneSelected} autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="${paramName}_none">
+                            <i class="fas fa-minus me-1"></i>不设置
+                        </label>
+                        ` : ''}
+                    </div>
+                    <div class="form-help">
+                        <small class="text-muted">选择是否启用此功能</small>
+                    </div>
+                `;
             } else if (!inputHtml) {
                 // 文本输入
                 const maxLength = paramConfig.max_length ? `maxlength="${paramConfig.max_length}"` : '';
@@ -506,13 +547,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 如果是OSPF配置，初始化开关字段的显示状态
         if (currentConfigType === 'ospf_config') {
-            // 初始隐藏所有开关控制的字段，因为开关默认是关闭的
+            // 初始隐藏配置向导相关字段
+            toggleOspfWizardFields(false);
+
+            // 初始显示基础配置，因为enable_basic_config开关默认是开启的
+            toggleOspfFields('enable_basic_config', true);
+
+            // 初始隐藏所有其他开关控制的字段，因为开关默认是关闭的
             toggleOspfFields('configure_area_auth', false);
             toggleOspfFields('configure_interface_auth', false);
             toggleOspfFields('configure_advanced', false);
             toggleOspfFields('configure_interface', false);
             toggleOspfFields('configure_timers', false);
-            toggleOspfFields('configure_interface_routing', false);
             toggleOspfFields('configure_redistribute', false);
 
             // 创建路由类型选择容器
@@ -1780,9 +1826,14 @@ window.toggleVlanCreateFields = function(enabled) {
 
 // 切换接口配置相关字段的显示/隐藏（全局）
 window.toggleInterfaceConfigFields = function(enabled) {
-    const interfaceConfigFields = ['interface', 'port_mode', 'pvid', 'allowed_vlans', 'native_vlan'];
+    // 基础接口配置字段：只显示接口选择和端口模式选择
+    const basicInterfaceFields = ['interface', 'port_mode'];
 
-    interfaceConfigFields.forEach(fieldName => {
+    // 端口模式相关字段：只有在选择了具体端口模式后才显示
+    const portModeFields = ['pvid', 'allowed_vlans', 'native_vlan'];
+
+    // 处理基础接口配置字段
+    basicInterfaceFields.forEach(fieldName => {
         const fieldGroup = document.querySelector(`[data-param="${fieldName}"]`);
         if (fieldGroup) {
             fieldGroup.style.display = enabled ? 'block' : 'none';
@@ -1797,9 +1848,57 @@ window.toggleInterfaceConfigFields = function(enabled) {
         }
     });
 
-    // 如果禁用接口配置，也要重置端口模式相关的显示状态
-    if (!enabled) {
-        togglePortModeFields('');
+    // 处理端口模式相关字段
+    if (enabled) {
+        // 如果启用接口配置，检查当前端口模式选择
+        const portModeSelect = document.getElementById('port_mode');
+        const currentPortMode = portModeSelect ? portModeSelect.value : '';
+
+        // 根据当前端口模式显示相应字段
+        togglePortModeFields(currentPortMode);
+    } else {
+        // 如果禁用接口配置，隐藏所有端口模式相关字段
+        portModeFields.forEach(fieldName => {
+            const fieldGroup = document.querySelector(`[data-param="${fieldName}"]`);
+            if (fieldGroup) {
+                fieldGroup.style.display = 'none';
+
+                // 清空字段值
+                const input = document.getElementById(fieldName);
+                if (input) {
+                    input.value = '';
+                }
+            }
+        });
+
+        // 重置端口模式选择
+        const portModeSelect = document.getElementById('port_mode');
+        if (portModeSelect) {
+            portModeSelect.value = '';
+        }
+    }
+}
+
+// 根据厂商更新VLAN相关标签（全局）
+window.updateVlanLabelsForVendor = function(vendor) {
+    // 检查当前是否在VLAN配置页面且已选择端口模式
+    const configTypeSelect = document.getElementById('config_type');
+    const portModeSelect = document.getElementById('port_mode');
+
+    if (configTypeSelect && configTypeSelect.value === 'vlan_complete_config' &&
+        portModeSelect && portModeSelect.value === 'trunk') {
+        // 如果当前是trunk模式，根据厂商更新PVID标签
+        const pvidField = document.querySelector('[data-param="pvid"]');
+        if (pvidField) {
+            const label = pvidField.querySelector('label');
+            if (label) {
+                if (vendor === 'huawei' || vendor === 'h3c') {
+                    label.innerHTML = 'PVID';
+                } else {
+                    label.innerHTML = 'Native VLAN ID';
+                }
+            }
+        }
     }
 }
 
@@ -1939,32 +2038,38 @@ window.toggleDhcpRelayFields = function(enabled) {
 window.togglePortModeFields = function(portMode) {
     console.log('切换端口模式到:', portMode);
 
+    // 获取当前厂商信息
+    const vendorSelect = document.getElementById('vendor');
+    const currentVendor = vendorSelect ? vendorSelect.value : '';
+
     // PVID字段 - 两种模式都可能需要，但access模式必填，trunk模式可选
     const pvidField = document.querySelector('[data-param="pvid"]');
     if (pvidField) {
         if (portMode === 'access' || portMode === 'trunk') {
             pvidField.style.display = 'block';
 
-            // 更新必填状态
+            // 更新必填状态和标签文本
             const pvidInput = document.getElementById('pvid');
-            if (pvidInput) {
+            const label = pvidField.querySelector('label');
+
+            if (pvidInput && label) {
                 if (portMode === 'access') {
                     pvidInput.required = true;
-                    // 更新标签显示必填标记
-                    const label = pvidField.querySelector('label');
-                    if (label && !label.innerHTML.includes('text-danger')) {
-                        label.innerHTML = label.innerHTML.replace('端口PVID', '端口PVID <span class="text-danger">*</span>');
-                    }
-                } else {
+                    // 更新标签为"VLAN ID"并显示必填标记
+                    label.innerHTML = 'VLAN ID <span class="text-danger">*</span>';
+                } else if (portMode === 'trunk') {
                     pvidInput.required = false;
-                    // 移除必填标记
-                    const label = pvidField.querySelector('label');
-                    if (label) {
-                        label.innerHTML = label.innerHTML.replace(' <span class="text-danger">*</span>', '');
+                    // 根据厂商显示不同的标签
+                    if (currentVendor === 'huawei' || currentVendor === 'h3c') {
+                        label.innerHTML = 'PVID';
+                    } else {
+                        // 思科等其他厂商使用Native VLAN概念
+                        label.innerHTML = 'Native VLAN ID';
                     }
                 }
             }
         } else {
+            // 没有选择端口模式时隐藏PVID字段
             pvidField.style.display = 'none';
             const pvidInput = document.getElementById('pvid');
             if (pvidInput) {
@@ -2085,10 +2190,13 @@ window.togglePortAggregationFields = function(toggleType, enabled) {
 
 // 创建OSPF配置开关（全局）
 window.createOspfToggle = function(paramName, paramConfig, displayName, helpText) {
+    // 检查是否有默认值
+    const defaultChecked = paramConfig.default === true ? 'checked' : '';
+
     return `
         <label class="form-label">${displayName}</label>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" onchange="toggleOspfFields('${paramName}', this.checked)">
+            <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" ${defaultChecked} onchange="toggleOspfFields('${paramName}', this.checked)">
             <label class="form-check-label" for="${paramName}">启用配置</label>
         </div>
         <div class="form-help">
@@ -2327,6 +2435,9 @@ window.toggleOspfFields = function(toggleType, enabled) {
     let fieldsToToggle = [];
 
     switch(toggleType) {
+        case 'enable_basic_config':
+            fieldsToToggle = ['process_id', 'router_id', 'areas'];
+            break;
         case 'configure_area_auth':
             fieldsToToggle = ['area_auth_type', 'area_auth_area', 'area_auth_password'];
             break;
@@ -2337,15 +2448,12 @@ window.toggleOspfFields = function(toggleType, enabled) {
             fieldsToToggle = ['stub_area', 'nssa_area', 'area_range'];
             break;
         case 'configure_interface':
-            fieldsToToggle = ['interface_name', 'interface_cost', 'interface_priority'];
+            fieldsToToggle = ['interface_name', 'configure_interface_routing', 'interface_cost', 'interface_priority'];
             break;
         case 'configure_timers':
             fieldsToToggle = ['hello_interval', 'dead_interval'];
             break;
-        case 'configure_interface_routing':
-            // 这个开关不控制任何字段的显示，只是一个配置选项
-            fieldsToToggle = [];
-            break;
+
         case 'configure_redistribute':
             fieldsToToggle = ['redistribute_static', 'redistribute_direct', 'redistribute_connected', 'redistribute_rip', 'redistribute_bgp', 'redistribute_isis', 'redistribute_cost', 'redistribute_type', 'redistribute_subnets'];
             // 特殊处理：显示路由类型选择区域
@@ -3053,5 +3161,274 @@ window.validateStpInteger = function(input, min, max) {
     if (errorDiv) errorDiv.textContent = '';
     return true;
 }
+
+// OSPF配置向导相关函数
+
+// 创建OSPF配置向导开关（全局）
+window.createOspfWizardToggle = function(paramName, paramConfig) {
+    const description = paramConfig.description || paramName;
+
+    return `
+        <div class="card border-primary mb-3">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-magic me-2"></i>OSPF配置向导</h6>
+            </div>
+            <div class="card-body">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="${paramName}" name="${paramName}" value="true" onchange="toggleOspfWizardFields(this.checked)">
+                    <label class="form-check-label" for="${paramName}">
+                        <strong>启用配置向导</strong>
+                    </label>
+                </div>
+                <div class="form-help">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        配置向导可以帮助您快速配置常见的OSPF场景，适合新用户使用
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 创建OSPF场景选择（全局）
+window.createOspfScenarioSelect = function(paramName, paramConfig) {
+    const description = paramConfig.description || paramName;
+
+    return `
+        <label for="${paramName}" class="form-label">${description}</label>
+        <select class="form-select" id="${paramName}" name="${paramName}" onchange="handleOspfScenarioChange(this.value)">
+            <option value="">请选择配置场景</option>
+            <option value="single_area">单区域OSPF（适合小型网络）</option>
+            <option value="multi_area">多区域OSPF（适合大型网络）</option>
+            <option value="backbone_only">仅骨干区域（Area 0）</option>
+        </select>
+        <div class="form-help">
+            <small class="text-muted">
+                <i class="fas fa-lightbulb me-1"></i>
+                根据您的网络规模和需求选择合适的OSPF场景
+            </small>
+        </div>
+    `;
+}
+
+// 创建OSPF路由器角色选择（全局）
+window.createOspfRoleSelect = function(paramName, paramConfig) {
+    const description = paramConfig.description || paramName;
+
+    return `
+        <label for="${paramName}" class="form-label">${description}</label>
+        <select class="form-select" id="${paramName}" name="${paramName}" onchange="handleOspfRoleChange(this.value)">
+            <option value="">请选择路由器角色</option>
+            <option value="internal">内部路由器（所有接口在同一区域）</option>
+            <option value="abr">区域边界路由器（ABR，连接多个区域）</option>
+            <option value="asbr">自治系统边界路由器（ASBR，引入外部路由）</option>
+        </select>
+        <div class="form-help">
+            <small class="text-muted">
+                <i class="fas fa-network-wired me-1"></i>
+                路由器角色决定了需要配置的功能模块
+            </small>
+        </div>
+    `;
+}
+
+// 切换OSPF配置向导字段的显示/隐藏（全局）
+window.toggleOspfWizardFields = function(enabled) {
+    const wizardParams = ['scenario_type', 'router_role'];
+
+    wizardParams.forEach(paramName => {
+        const paramGroup = document.querySelector(`[data-param="${paramName}"]`);
+        if (paramGroup) {
+            paramGroup.style.display = enabled ? 'block' : 'none';
+
+            // 如果隐藏，清空输入值
+            if (!enabled) {
+                const input = paramGroup.querySelector('select');
+                if (input) input.value = '';
+            }
+        }
+    });
+
+    // 如果启用向导，显示配置建议
+    if (enabled) {
+        showOspfConfigurationTips();
+    } else {
+        hideOspfConfigurationTips();
+    }
+}
+
+// 处理OSPF场景变化（全局）
+window.handleOspfScenarioChange = function(scenario) {
+    console.log('OSPF场景变化:', scenario);
+
+    // 根据场景自动填充建议配置
+    switch (scenario) {
+        case 'single_area':
+            applySingleAreaTemplate();
+            break;
+        case 'multi_area':
+            applyMultiAreaTemplate();
+            break;
+        case 'backbone_only':
+            applyBackboneOnlyTemplate();
+            break;
+    }
+}
+
+// 处理OSPF路由器角色变化（全局）
+window.handleOspfRoleChange = function(role) {
+    console.log('OSPF路由器角色变化:', role);
+
+    // 根据角色启用相应的功能模块
+    switch (role) {
+        case 'internal':
+            // 内部路由器：只需要基础配置
+            enableBasicOspfConfig();
+            break;
+        case 'abr':
+            // ABR：需要高级配置（多区域、Stub等）
+            enableAbrConfig();
+            break;
+        case 'asbr':
+            // ASBR：需要路由引入配置
+            enableAsbrConfig();
+            break;
+    }
+}
+
+// 应用单区域模板
+function applySingleAreaTemplate() {
+    // 自动填充单区域配置
+    const processIdInput = document.getElementById('process_id');
+    const areasInput = document.getElementById('areas');
+
+    if (processIdInput && !processIdInput.value) {
+        processIdInput.value = '1';
+    }
+
+    if (areasInput && !areasInput.value) {
+        areasInput.placeholder = '0.0.0.0:192.168.1.0/24';
+    }
+
+    showToast('已应用单区域OSPF模板', 'info');
+}
+
+// 应用多区域模板
+function applyMultiAreaTemplate() {
+    // 自动填充多区域配置
+    const processIdInput = document.getElementById('process_id');
+    const areasInput = document.getElementById('areas');
+
+    if (processIdInput && !processIdInput.value) {
+        processIdInput.value = '1';
+    }
+
+    if (areasInput && !areasInput.value) {
+        areasInput.placeholder = '0.0.0.0:192.168.1.0/24,0.0.0.1:192.168.2.0/24';
+    }
+
+    // 启用高级配置
+    const advancedToggle = document.getElementById('configure_advanced');
+    if (advancedToggle) {
+        advancedToggle.checked = true;
+        toggleOspfFields('configure_advanced', true);
+    }
+
+    showToast('已应用多区域OSPF模板', 'info');
+}
+
+// 应用仅骨干区域模板
+function applyBackboneOnlyTemplate() {
+    // 自动填充骨干区域配置
+    const processIdInput = document.getElementById('process_id');
+    const areasInput = document.getElementById('areas');
+
+    if (processIdInput && !processIdInput.value) {
+        processIdInput.value = '1';
+    }
+
+    if (areasInput && !areasInput.value) {
+        areasInput.placeholder = '0.0.0.0:192.168.0.0/16';
+    }
+
+    showToast('已应用骨干区域OSPF模板', 'info');
+}
+
+// 启用基础OSPF配置
+function enableBasicOspfConfig() {
+    // 确保基础配置开关开启
+    const basicToggle = document.getElementById('enable_basic_config');
+    if (basicToggle) {
+        basicToggle.checked = true;
+        toggleOspfFields('enable_basic_config', true);
+    }
+
+    showToast('已启用基础OSPF配置', 'info');
+}
+
+// 启用ABR配置
+function enableAbrConfig() {
+    enableBasicOspfConfig();
+
+    // 启用高级配置
+    const advancedToggle = document.getElementById('configure_advanced');
+    if (advancedToggle) {
+        advancedToggle.checked = true;
+        toggleOspfFields('configure_advanced', true);
+    }
+
+    // 启用区域认证
+    const areaAuthToggle = document.getElementById('configure_area_auth');
+    if (areaAuthToggle) {
+        areaAuthToggle.checked = true;
+        toggleOspfFields('configure_area_auth', true);
+    }
+
+    showToast('已启用ABR配置模块', 'info');
+}
+
+// 启用ASBR配置
+function enableAsbrConfig() {
+    enableBasicOspfConfig();
+
+    // 启用路由引入
+    const redistributeToggle = document.getElementById('configure_redistribute');
+    if (redistributeToggle) {
+        redistributeToggle.checked = true;
+        toggleOspfFields('configure_redistribute', true);
+    }
+
+    showToast('已启用ASBR配置模块', 'info');
+}
+
+// 显示OSPF配置提示
+function showOspfConfigurationTips() {
+    const tipsHtml = `
+        <div id="ospf-config-tips" class="alert alert-info mt-3">
+            <h6><i class="fas fa-info-circle me-2"></i>OSPF配置提示</h6>
+            <ul class="mb-0">
+                <li><strong>Router ID</strong>：建议使用环回接口IP或管理IP</li>
+                <li><strong>区域配置</strong>：Area 0为骨干区域，其他为普通区域</li>
+                <li><strong>网络配置</strong>：使用反掩码格式，如0.0.0.255表示/24网络</li>
+                <li><strong>接口配置</strong>：只能在三层接口上启用OSPF</li>
+            </ul>
+        </div>
+    `;
+
+    const parametersContainer = document.getElementById('parametersContainer');
+    if (parametersContainer && !document.getElementById('ospf-config-tips')) {
+        parametersContainer.insertAdjacentHTML('beforeend', tipsHtml);
+    }
+}
+
+// 隐藏OSPF配置提示
+function hideOspfConfigurationTips() {
+    const tipsElement = document.getElementById('ospf-config-tips');
+    if (tipsElement) {
+        tipsElement.remove();
+    }
+}
+
 </script>
 {% endblock %}

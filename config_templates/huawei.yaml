@@ -297,192 +297,200 @@ port_aggregation:
 ospf_config:
   description: "OSPF路由协议配置"
   parameters:
+    # 基础配置
+    enable_basic_config:
+      type: "boolean"
+      required: false
+      default: true
+      description: "基础OSPF配置"
+      order: 1
+
     process_id:
       type: "integer"
       required: true
       range: [1, 65535]
       description: "OSPF进程ID"
-      order: 1
+      order: 2
     router_id:
       type: "string"
       required: true
       pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
       description: "OSPF路由器ID（IP地址格式）"
-      order: 2
+      order: 3
     areas:
       type: "string"
       required: true
       description: "OSPF区域和网络配置（格式：区域ID:网络地址/掩码，多个用逗号分隔）"
       placeholder: "0.0.0.0:192.168.1.0/24,0.0.0.1:192.168.2.0/24"
-      order: 3
+      order: 4
 
     # 区域认证配置
     configure_area_auth:
       type: "boolean"
       required: false
       description: "是否配置区域认证"
-      order: 4
+      order: 5
     area_auth_type:
       type: "string"
       required: false
       options: ["simple", "md5"]
       description: "区域认证类型"
-      order: 5
+      order: 6
     area_auth_area:
       type: "string"
       required: false
       pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
       description: "认证区域ID"
-      order: 6
+      order: 7
     area_auth_password:
       type: "string"
       required: false
       max_length: 255
       description: "认证密码"
-      order: 7
+      order: 8
 
     # 接口认证配置
     configure_interface_auth:
       type: "boolean"
       required: false
       description: "是否配置接口认证"
-      order: 8
+      order: 9
     interface_auth_interface:
       type: "string"
       required: false
       description: "认证接口名称"
-      order: 9
+      order: 10
     interface_auth_type:
       type: "string"
       required: false
       options: ["simple", "md5"]
       description: "接口认证类型"
-      order: 10
+      order: 11
     interface_auth_password:
       type: "string"
       required: false
       max_length: 255
       description: "接口认证密码"
-      order: 11
+      order: 12
 
     # 高级配置
     configure_advanced:
       type: "boolean"
       required: false
       description: "是否配置高级选项"
-      order: 12
+      order: 13
     stub_area:
       type: "string"
       required: false
       pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
       description: "Stub区域ID"
-      order: 13
+      order: 14
     nssa_area:
       type: "string"
       required: false
       pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
       description: "NSSA区域ID"
-      order: 14
+      order: 15
     area_range:
       type: "string"
       required: false
       description: "区域路由聚合（格式：区域ID:网络地址/掩码）"
       placeholder: "0.0.0.1:192.168.0.0/22"
-      order: 15
+      order: 16
 
     # 接口配置
     configure_interface:
       type: "boolean"
       required: false
       description: "是否配置接口参数"
-      order: 16
+      order: 17
     interface_name:
       type: "string"
       required: false
       description: "接口名称"
       placeholder: "GigabitEthernet0/0/1"
-      order: 17
+      order: 18
     configure_interface_routing:
       type: "boolean"
       required: false
-      description: "是否将物理接口配置为路由模式"
-      order: 18
+      description: "是否将物理接口配置为路由模式（仅物理接口需要）"
+      order: 19
     interface_cost:
       type: "integer"
       required: false
       range: [1, 65535]
       description: "接口开销值"
-      order: 19
+      order: 20
     interface_priority:
       type: "integer"
       required: false
       range: [0, 255]
       description: "接口优先级"
-      order: 20
+      order: 21
 
     # 定时器配置
     configure_timers:
       type: "boolean"
       required: false
       description: "是否配置OSPF定时器"
-      order: 21
+      order: 22
     hello_interval:
       type: "integer"
       required: false
       range: [1, 65535]
       description: "Hello间隔时间（秒）"
-      order: 22
+      order: 23
     dead_interval:
       type: "integer"
       required: false
       range: [1, 65535]
       description: "Dead间隔时间（秒）"
-      order: 23
+      order: 24
 
     # 路由引入配置
     configure_redistribute:
       type: "boolean"
       required: false
       description: "是否配置路由引入"
-      order: 24
+      order: 25
     redistribute_static:
       type: "boolean"
       required: false
       description: "引入静态路由"
-      order: 25
+      order: 26
     redistribute_direct:
       type: "boolean"
       required: false
       description: "引入直连路由"
-      order: 26
+      order: 27
     redistribute_rip:
       type: "boolean"
       required: false
       description: "引入RIP路由"
-      order: 27
+      order: 28
     redistribute_bgp:
       type: "boolean"
       required: false
       description: "引入BGP路由"
-      order: 28
+      order: 29
     redistribute_isis:
       type: "boolean"
       required: false
       description: "引入ISIS路由"
-      order: 29
+      order: 30
     redistribute_cost:
       type: "integer"
       required: false
       range: [1, 16777214]
       description: "引入路由的开销值"
       placeholder: "100"
-      order: 30
+      order: 31
     redistribute_type:
       type: "string"
       required: false
       options: ["1", "2"]
       description: "引入路由的类型（1=Type-1外部路由，2=Type-2外部路由）"
-      order: 31
+      order: 32
 
   commands: |
     # 配置OSPF基本功能
