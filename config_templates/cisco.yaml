@@ -775,70 +775,151 @@ dhcp_service:
 static_route:
   description: "静态路由配置"
   parameters:
-    destination:
-      type: "string"
-      required: true
-      description: "目标网络（支持CIDR格式，如：10.0.0.0/8）"
-    mask:
-      type: "string"
+    # 启用静态路由配置
+    enable_static_route:
+      type: "boolean"
       required: false
-      description: "子网掩码（可选，CIDR格式时自动计算）"
-    next_hop:
-      type: "string"
-      required: true
-      description: "下一跳地址"
-    administrative_distance:
-      type: "integer"
+      default: false
+      description: "是否配置静态路由"
+      order: 1
+
+    # 静态路由条目（支持多条）
+    route_entries:
+      type: "array"
       required: false
-      default: 1
-      range: [1, 255]
-      description: "管理距离"
-    description:
-      type: "string"
-      required: false
-      max_length: 80
-      description: "路由描述"
+      description: "静态路由条目列表"
+      order: 2
+      item_schema:
+        destination:
+          type: "string"
+          required: true
+          pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          description: "目标网络"
+          placeholder: "10.0.0.0"
+        mask:
+          type: "string"
+          required: true
+          pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          description: "子网掩码"
+          placeholder: "255.0.0.0"
+        next_hop:
+          type: "string"
+          required: true
+          pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+          description: "下一跳地址"
+          placeholder: "192.168.1.1"
+        administrative_distance:
+          type: "integer"
+          required: false
+          default: 1
+          range: [1, 255]
+          description: "管理距离"
+          placeholder: "1"
+        description:
+          type: "string"
+          required: false
+          max_length: 80
+          description: "路由描述"
+          placeholder: "到内网的路由"
+
   commands: |
-    ip route {{ destination }}{% if mask %} {{ mask }}{% endif %} {{ next_hop }}{% if administrative_distance and administrative_distance != 1 %} {{ administrative_distance }}{% endif %}{% if description %} name {{ description }}{% endif %}
+    {% if enable_static_route and route_entries %}
+    {% for route in route_entries %}
+    ip route {{ route.destination }} {{ route.mask }} {{ route.next_hop }}{% if route.administrative_distance and route.administrative_distance != 1 %} {{ route.administrative_distance }}{% endif %}{% if route.description %} name {{ route.description }}{% endif %}
+    {% endfor %}
+    {% endif %}
+
   example:
-    destination: "10.0.0.0/8"
-    next_hop: "192.168.1.1"
-    administrative_distance: 1
+    enable_static_route: true
+    route_entries:
+      - destination: "10.0.0.0"
+        mask: "255.0.0.0"
+        next_hop: "192.168.1.1"
+        administrative_distance: 1
+        description: "到内网的路由"
+      - destination: "172.16.0.0"
+        mask: "255.240.0.0"
+        next_hop: "192.168.1.2"
+        administrative_distance: 10
+        description: "到分支网络的路由"
 
 interface_ip:
   description: "接口IP地址配置"
   parameters:
-    interface:
-      type: "string"
-      required: true
-      description: "接口名称（支持范围，如：GigabitEthernet0/1-4）"
-    ip_address:
-      type: "string"
-      required: true
-      description: "IP地址（支持CIDR格式，如：192.168.1.1/24）"
-    subnet_mask:
-      type: "string"
+    # 启用接口IP配置
+    enable_interface_ip:
+      type: "boolean"
       required: false
-      description: "子网掩码（可选，CIDR格式时自动计算）"
-    description:
-      type: "string"
+      default: false
+      description: "是否配置接口IP地址"
+      order: 1
+
+    # 接口IP配置条目（支持多个接口）
+    interface_entries:
+      type: "array"
       required: false
-      max_length: 80
-      description: "接口描述"
+      description: "接口IP配置条目列表"
+      order: 2
+      item_schema:
+        interface_type:
+          type: "string"
+          required: true
+          options: ["Vlan", "GigabitEthernet", "TenGigabitEthernet", "FastEthernet", "Loopback"]
+          description: "接口类型"
+          default: "Vlan"
+        interface_number:
+          type: "string"
+          required: true
+          description: "接口编号"
+          placeholder: "100"
+        ip_address:
+          type: "string"
+          required: true
+          pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+          description: "IP地址（CIDR格式）"
+          placeholder: "192.168.100.1/24"
+        description:
+          type: "string"
+          required: false
+          max_length: 80
+          description: "接口描述"
+          placeholder: "管理网络接口"
+        shutdown:
+          type: "boolean"
+          required: false
+          default: false
+          description: "是否关闭接口"
+
   commands: |
-    {% for port in port_list %}
-    interface {{ port }}
-    ip address {{ ip_address }} {{ subnet_mask }}
-    {% if description %}
-     description {{ description }}
+    {% if enable_interface_ip and interface_entries %}
+    {% for intf in interface_entries %}
+    interface {{ intf.interface_type }} {{ intf.interface_number }}
+    {% if intf.description %}
+    description {{ intf.description }}
     {% endif %}
+    ip address {{ intf.ip_address | ip_from_cidr }} {{ intf.ip_address | netmask_from_cidr }}
+    {% if not intf.shutdown %}
     no shutdown
+    {% else %}
+    shutdown
+    {% endif %}
     exit
     {% endfor %}
+    {% endif %}
+
   example:
-    interface: "GigabitEthernet0/1"
-    ip_address: "192.168.1.1/24"
-    description: "LAN interface"
+    enable_interface_ip: true
+    interface_entries:
+      - interface_type: "Vlan"
+        interface_number: "100"
+        ip_address: "192.168.100.1/24"
+        description: "管理网络接口"
+        shutdown: false
+      - interface_type: "GigabitEthernet"
+        interface_number: "0/1"
+        ip_address: "10.1.1.1/30"
+        description: "上行链路接口"
+        shutdown: false
 
 stp_config:
   description: "STP配置"

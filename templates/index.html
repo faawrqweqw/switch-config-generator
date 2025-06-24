@@ -1,0 +1,3255 @@
+{% extends "base.html" %}
+
+{% block title %}设备配置向导 - 交换机配置命令生成平台{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 简化的全屏布局 */
+.wizard-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+/* 顶部导航 */
+.top-nav {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-title h1 {
+    font-size: 2rem;
+    margin: 0;
+}
+
+.vendor-selector {
+    display: flex;
+    gap: 1rem;
+}
+
+.vendor-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.vendor-btn.active, .vendor-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+.vendor-btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.vendor-btn.disabled:hover {
+    transform: none;
+    background: rgba(255,255,255,0.1);
+}
+
+/* 步骤导航 */
+.steps-nav {
+    background: white;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.step.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.step.active .step-number {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+/* 主内容区 */
+.main-content {
+    flex: 1;
+    padding: 2rem;
+}
+
+.step-content {
+    display: none;
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.step-content.active {
+    display: block;
+}
+
+/* 三大类模块选择网格 */
+.modules-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.module-category-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid #e9ecef;
+    border-radius: 20px;
+    padding: 0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.module-category-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.module-category-card:hover::before {
+    transform: scaleX(1);
+}
+
+.module-category-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.2);
+    transform: translateY(-5px);
+}
+
+.category-header-card {
+    text-align: center;
+    padding: 2rem 1.5rem 1.5rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #e9ecef;
+}
+
+.category-icon-large {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.category-icon-large i {
+    font-size: 2.5rem;
+    color: white;
+}
+
+.category-title-card {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 0.75rem;
+}
+
+.category-description-card {
+    color: #6c757d;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.modules-list-card {
+    flex: 1;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.module-item-card {
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.module-item-card:hover {
+    background: #e9ecef;
+    border-color: #667eea;
+    transform: translateX(5px);
+}
+
+.module-item-card.selected {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+    border-color: #667eea;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.module-checkbox-card {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    position: relative;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.module-checkbox-card.checked {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+}
+
+.module-checkbox-card.checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.module-info-card {
+    flex: 1;
+}
+
+.module-name-card {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+.module-desc-card {
+    font-size: 0.85rem;
+    color: #6c757d;
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* 配置表单 */
+.config-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.config-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* 开关控制样式 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #dc3545;  /* 默认红色表示关闭 */
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);  /* 启用时绿色渐变 */
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+/* 端口输入组合控件 */
+.port-input-group {
+    margin-bottom: 1rem;
+}
+
+.port-input-group .row {
+    align-items: end;
+}
+
+.port-prefix-select {
+    width: 100%;
+}
+
+.port-number-input {
+    width: 100%;
+}
+
+/* 删除了port-preview样式 */
+
+/* 条件显示控件 */
+.conditional-field {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(102, 126, 234, 0.05);
+    border-left: 4px solid #667eea;
+    border-radius: 0 6px 6px 0;
+}
+
+.conditional-field.show {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+/* 数组字段样式 */
+.array-field {
+    margin-bottom: 1.5rem;
+}
+
+.array-container {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    min-height: 80px;
+    transition: all 0.3s ease;
+}
+
+.array-container:hover {
+    border-color: #007bff;
+    background: #f0f8ff;
+}
+
+.array-item {
+    background: white;
+    border: 1px solid #e9ecef;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.array-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.array-item:last-child {
+    margin-bottom: 0;
+}
+
+.array-item .btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.array-item .btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* 端口模式相关字段 */
+.port-mode-fields {
+    background: rgba(40, 167, 69, 0.05);
+    border-left: 4px solid #28a745;
+}
+
+.trunk-only-field {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid #ffc107;
+    border-radius: 0 4px 4px 0;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 表单分组 */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group-title {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* 预览区域 */
+.preview-container {
+    background: #2d3748;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.preview-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.preview-content {
+    padding: 1.5rem;
+    font-family: 'Courier New', monospace;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.config-module-section {
+    margin-bottom: 2rem;
+}
+
+.config-module-section:last-child {
+    margin-bottom: 0;
+}
+
+.config-module-section h5 {
+    color: #a0aec0;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #4a5568;
+}
+
+.config-commands {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.command-line {
+    color: #e2e8f0;
+    margin-bottom: 0.25rem;
+    padding: 0.25rem 0;
+    border-left: 3px solid transparent;
+    padding-left: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.command-line:hover {
+    background: rgba(102, 126, 234, 0.2);
+    border-left-color: #667eea;
+}
+
+/* 底部导航 */
+.bottom-nav {
+    background: white;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.nav-btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.nav-btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.nav-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 响应式设计 */
+@media (max-width: 1400px) {
+    .modules-selection-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 1024px) {
+    .modules-selection-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .module-category-card {
+        min-height: auto;
+    }
+
+    .category-icon-large {
+        width: 60px;
+        height: 60px;
+    }
+
+    .category-icon-large i {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .top-nav {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .vendor-selector {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .vendor-btn {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .steps-nav {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .step {
+        justify-content: center;
+    }
+
+    .main-content {
+        padding: 1rem;
+    }
+
+    .modules-selection-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .module-category-card {
+        min-height: auto;
+    }
+
+    .category-header-card {
+        padding: 1.5rem 1rem 1rem;
+    }
+
+    .category-icon-large {
+        width: 50px;
+        height: 50px;
+    }
+
+    .category-icon-large i {
+        font-size: 1.5rem;
+    }
+
+    .category-title-card {
+        font-size: 1.2rem;
+    }
+
+    .modules-list-card {
+        padding: 1rem;
+    }
+
+    .module-item-card {
+        padding: 0.75rem;
+    }
+
+    .module-name-card {
+        font-size: 0.9rem;
+    }
+
+    .module-desc-card {
+        font-size: 0.8rem;
+    }
+
+    .bottom-nav {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .nav-btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+    <!-- 顶部导航 -->
+    <div class="top-nav">
+        <div class="nav-title">
+            <h1><i class="fas fa-cogs me-2"></i>设备配置向导</h1>
+        </div>
+        <div class="vendor-selector">
+            <button class="vendor-btn active" data-vendor="huawei">华为</button>
+            <button class="vendor-btn" data-vendor="h3c">华三</button>
+            <button class="vendor-btn" data-vendor="cisco">思科</button>
+            <button class="vendor-btn" data-vendor="ruijie">锐捷</button>
+        </div>
+    </div>
+
+    <!-- 步骤导航 -->
+    <div class="steps-nav">
+        <div class="step active" data-step="1">
+            <div class="step-number">1</div>
+            <span>选择模块</span>
+        </div>
+        <div class="step" data-step="2">
+            <div class="step-number">2</div>
+            <span>配置参数</span>
+        </div>
+        <div class="step" data-step="3">
+            <div class="step-number">3</div>
+            <span>生成脚本</span>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 步骤1：选择模块 -->
+        <div class="step-content active" data-step="1">
+            <h2>选择配置模块</h2>
+            <p>请选择您需要配置的功能模块</p>
+
+            <div class="modules-selection-grid">
+                <!-- 以太网交换配置 -->
+                <div class="module-category-card">
+                    <div class="category-header-card">
+                        <div class="category-icon-large">
+                            <i class="fas fa-ethernet"></i>
+                        </div>
+                        <h3 class="category-title-card">以太网交换配置</h3>
+                        <p class="category-description-card">VLAN管理、端口聚合、生成树协议等二层交换功能</p>
+                    </div>
+                    <div class="modules-list-card">
+                        <div class="module-item-card" data-module="vlan_complete_config">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">VLAN一体化配置</div>
+                                <div class="module-desc-card">创建vlan、配置接口VLAN属性</div>
+                            </div>
+                        </div>
+                        <div class="module-item-card" data-module="port_aggregation">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">端口聚合配置</div>
+                                <div class="module-desc-card">LACP、静态聚合、负载均衡</div>
+                            </div>
+                        </div>
+                        <div class="module-item-card" data-module="stp_config">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">STP生成树协议</div>
+                                <div class="module-desc-card">RSTP/MSTP、根桥、端口保护</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IP业务和路由配置 -->
+                <div class="module-category-card">
+                    <div class="category-header-card">
+                        <div class="category-icon-large">
+                            <i class="fas fa-route"></i>
+                        </div>
+                        <h3 class="category-title-card">IP业务和路由配置</h3>
+                        <p class="category-description-card">接口IP配置、静态路由、动态路由、DHCP服务等三层网络功能</p>
+                    </div>
+                    <div class="modules-list-card">
+                        <div class="module-item-card" data-module="interface_ip">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">接口IP配置</div>
+                                <div class="module-desc-card">为接口配置IP地址和描述</div>
+                            </div>
+                        </div>
+                        <div class="module-item-card" data-module="static_route">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">静态路由配置</div>
+                                <div class="module-desc-card">配置静态路由表和下一跳</div>
+                            </div>
+                        </div>
+                        <div class="module-item-card" data-module="ospf_config">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">OSPF动态路由</div>
+                                <div class="module-desc-card">区域配置、认证、路由引入</div>
+                            </div>
+                        </div>
+                        <div class="module-item-card" data-module="dhcp_service">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">DHCP服务配置</div>
+                                <div class="module-desc-card">地址池、接口配置、选项设置</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 可靠性配置 -->
+                <div class="module-category-card">
+                    <div class="category-header-card">
+                        <div class="category-icon-large">
+                            <i class="fas fa-shield-halved"></i>
+                        </div>
+                        <h3 class="category-title-card">可靠性配置</h3>
+                        <p class="category-description-card">高可用性、冗余备份、故障切换等可靠性功能</p>
+                    </div>
+                    <div class="modules-list-card">
+                        <div class="module-item-card" data-module="vrrp_config">
+                            <div class="module-checkbox-card"></div>
+                            <div class="module-info-card">
+                                <div class="module-name-card">VRRP网关冗余配置</div>
+                                <div class="module-desc-card">虚拟路由冗余协议，网关高可用</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 步骤2：配置参数 -->
+        <div class="step-content" data-step="2">
+            <h2>配置参数</h2>
+            <p>为选中的模块配置具体参数</p>
+            <div id="configForms"></div>
+        </div>
+
+        <!-- 步骤3：生成脚本 -->
+        <div class="step-content" data-step="3">
+            <h2>配置脚本生成完成</h2>
+            <p>配置脚本已生成完成，您可以复制或下载配置脚本</p>
+            
+            <div class="preview-container">
+                <div class="preview-header">
+                    <h3>最终配置脚本</h3>
+                    <div>
+                        <button class="nav-btn nav-btn-secondary me-2" onclick="copyConfig()">复制</button>
+                        <button class="nav-btn nav-btn-primary" onclick="downloadConfig()">下载</button>
+                    </div>
+                </div>
+                <div class="preview-content" id="finalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <button class="nav-btn nav-btn-secondary" id="prevBtn" onclick="previousStep()" disabled>
+            <i class="fas fa-arrow-left me-1"></i>上一步
+        </button>
+        
+        <div class="step-info">
+            <span id="stepInfo">步骤 1 / 4</span>
+        </div>
+        
+        <button class="nav-btn nav-btn-primary" id="nextBtn" onclick="nextStep()">
+            下一步<i class="fas fa-arrow-right ms-1"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 全局变量
+    let currentStep = 1;
+    let selectedModules = new Set();
+    let currentVendor = 'huawei';
+
+    // 厂商特定的接口前缀配置
+    const vendorInterfacePrefixes = {
+        'huawei': [
+            'GigabitEthernet',
+            'XGigabitEthernet',
+            '10GE',
+            '25GE',
+            '40GE',
+            '100GE',
+            'Vlanif',
+            'Eth-Trunk',
+            'LoopBack'
+        ],
+        'h3c': [
+            'Ethernet',
+            'GigabitEthernet',
+            'Ten-GigabitEthernet',
+            'Twenty-FiveGigE',
+            'FortyGigE',
+            'HundredGigE',
+            'Vlan-interface',
+            'Bridge-Aggregation',
+            'LoopBack'
+        ],
+        'cisco': [
+            'FastEthernet',
+            'GigabitEthernet',
+            'TenGigabitEthernet',
+            'TwentyFiveGigE',
+            'FortyGigabitEthernet',
+            'HundredGigE',
+            'Vlan',
+            'Port-channel',
+            'Loopback'
+        ],
+        'ruijie': [
+            'FastEthernet',
+            'GigabitEthernet',
+            'TenGigabitEthernet',
+            'TwentyFiveGigE',
+            'FortyGigabitEthernet',
+            'HundredGigE',
+            'Vlan',
+            'AggregatePort',
+            'Loopback'
+        ]
+    };
+
+    // 初始化
+    init();
+
+    function init() {
+        bindEvents();
+        updateUI();
+    }
+
+    // 绑定事件
+    function bindEvents() {
+        // 厂商选择
+        document.querySelectorAll('.vendor-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // 只允许在模块选择页面（步骤1）点击厂商卡片
+                if (currentStep !== 1) {
+                    console.log('厂商选择仅在模块选择页面可用');
+                    return;
+                }
+
+                document.querySelectorAll('.vendor-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentVendor = this.dataset.vendor;
+
+                // 更新字段标签
+                updateFieldLabels();
+
+                // 更新端口前缀选项
+                updateAllPortPrefixes();
+            });
+        });
+
+        // 模块选择 - 支持新的三大类结构
+        document.querySelectorAll('.module-item-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const moduleId = this.dataset.module;
+                const checkbox = this.querySelector('.module-checkbox-card');
+
+                if (this.classList.contains('selected')) {
+                    this.classList.remove('selected');
+                    checkbox.classList.remove('checked');
+                    selectedModules.delete(moduleId);
+                } else {
+                    this.classList.add('selected');
+                    checkbox.classList.add('checked');
+                    selectedModules.add(moduleId);
+                }
+                updateUI();
+            });
+        });
+    }
+
+    // 步骤导航
+    async function nextStep() {
+        if (currentStep === 1 && selectedModules.size === 0) {
+            alert('请至少选择一个配置模块');
+            return;
+        }
+
+        if (currentStep < 3) {
+            currentStep++;
+            updateUI();
+
+            try {
+                if (currentStep === 2) {
+                    await generateConfigForms();
+                }
+                if (currentStep === 3) {
+                    await generateFinalConfig();
+                }
+            } catch (error) {
+                console.error('步骤处理失败:', error);
+                alert('处理失败，请检查网络连接或输入参数');
+            }
+        }
+    }
+
+    function previousStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateUI();
+        }
+    }
+
+    // 更新UI
+    function updateUI() {
+        // 更新步骤指示器
+        document.querySelectorAll('.step').forEach((step, index) => {
+            step.classList.toggle('active', index + 1 === currentStep);
+        });
+
+        // 更新步骤内容
+        document.querySelectorAll('.step-content').forEach((content, index) => {
+            content.classList.toggle('active', index + 1 === currentStep);
+        });
+
+        // 更新导航按钮
+        document.getElementById('prevBtn').disabled = currentStep === 1;
+        document.getElementById('nextBtn').disabled = currentStep === 1 && selectedModules.size === 0;
+        document.getElementById('nextBtn').style.display = currentStep === 3 ? 'none' : 'block';
+        document.getElementById('stepInfo').textContent = `步骤 ${currentStep} / 3`;
+
+        // 更新厂商按钮状态
+        updateVendorButtonsState();
+    }
+
+    // 生成配置表单 - 与后端API集成
+    async function generateConfigForms() {
+        console.log('🔧 开始生成配置表单');
+        console.log('选中的模块:', Array.from(selectedModules));
+        console.log('当前厂商:', currentVendor);
+
+        const container = document.getElementById('configForms');
+        console.log('表单容器:', container);
+
+        let html = '';
+
+        if (selectedModules.size === 0) {
+            console.log('❌ 没有选中任何模块，无法生成表单');
+            container.innerHTML = '<div class="text-warning">请先选择配置模块</div>';
+            return;
+        }
+
+        for (const moduleId of selectedModules) {
+            console.log(`\n📋 生成模块表单: ${moduleId}`);
+            try {
+                // 从后端获取模板信息
+                console.log(`获取模板信息: ${currentVendor}/${moduleId}`);
+                const templateInfo = await getTemplateInfo(currentVendor, moduleId);
+                console.log('模板信息:', templateInfo);
+
+                const moduleForm = generateFormForModule(moduleId, templateInfo);
+                console.log(`生成的表单HTML长度: ${moduleForm.length}`);
+                html += moduleForm;
+            } catch (error) {
+                console.error(`获取模块 ${moduleId} 的模板信息失败:`, error);
+                // 使用默认表单
+                const defaultForm = generateDefaultForm(moduleId);
+                console.log(`使用默认表单，HTML长度: ${defaultForm.length}`);
+                html += defaultForm;
+            }
+        }
+
+        console.log(`总HTML长度: ${html.length}`);
+        console.log('设置表单HTML到容器');
+        container.innerHTML = html;
+
+        // 验证表单是否正确生成
+        setTimeout(() => {
+            console.log('验证表单生成结果:');
+            selectedModules.forEach(moduleId => {
+                const formSection = document.querySelector(`[data-module="${moduleId}"]`);
+                console.log(`模块 ${moduleId} 的表单区域:`, formSection);
+                if (formSection) {
+                    const inputs = formSection.querySelectorAll('input, select, textarea');
+                    console.log(`  找到 ${inputs.length} 个输入控件`);
+                } else {
+                    console.log(`  ❌ 找不到模块 ${moduleId} 的表单区域`);
+                }
+            });
+        }, 50);
+
+        // 初始化表单控件
+        setTimeout(() => {
+            console.log('初始化表单控件');
+            initializeFormControls();
+        }, 100);
+    }
+
+    // 初始化表单控件
+    function initializeFormControls() {
+        // 初始化开关控制的条件字段显示状态
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            if (checkbox.name) {
+                handleToggleChange(checkbox.name, checkbox.checked);
+            }
+        });
+
+        // 初始化下拉选择的条件字段显示状态
+        document.querySelectorAll('select').forEach(select => {
+            if (select.name && select.name === 'dhcp_type') {
+                handleSelectChange(select.name, select.value);
+            }
+        });
+
+        // 初始化端口预览
+        document.querySelectorAll('.port-input-group').forEach(group => {
+            const hiddenInput = group.querySelector('input[type="hidden"]');
+            if (hiddenInput && hiddenInput.name) {
+                updatePortPreview(hiddenInput.name);
+            }
+        });
+
+        // 初始化字段标签
+        updateFieldLabels();
+    }
+
+    // 从后端获取模板信息
+    async function getTemplateInfo(vendor, configType) {
+        const response = await fetch(`/api/template_info/${vendor}/${configType}`);
+        const data = await response.json();
+        if (data.success) {
+            return data.template_info;
+        } else {
+            throw new Error(data.error);
+        }
+    }
+
+    // 根据模板信息生成表单
+    function generateFormForModule(moduleId, templateInfo) {
+        let html = `
+            <div class="config-section" data-module="${moduleId}">
+                <div class="config-title">
+                    <i class="fas fa-cog me-2"></i>${getModuleName(moduleId)}
+                </div>
+        `;
+
+        if (templateInfo && templateInfo.parameters) {
+            // 根据模块类型生成特定的表单结构
+            html += generateModuleSpecificForm(moduleId, templateInfo.parameters);
+        } else {
+            // 默认表单字段
+            html += generateDefaultForm(moduleId);
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    // 生成模块特定的表单结构
+    function generateModuleSpecificForm(moduleId, parameters) {
+        let html = '';
+
+        if (moduleId === 'vlan_complete_config') {
+            html += generateVlanConfigForm(parameters);
+        } else if (moduleId === 'interface_ip') {
+            html += generateInterfaceIpForm(parameters);
+        } else if (moduleId === 'static_route') {
+            html += generateStaticRouteForm(parameters);
+        } else if (moduleId === 'dhcp_service') {
+            html += generateDhcpServiceForm(parameters);
+        } else if (moduleId === 'vrrp_config') {
+            html += generateVrrpConfigForm(parameters);
+        } else if (moduleId === 'port_aggregation') {
+            html += generatePortAggregationForm(parameters);
+        } else if (moduleId === 'stp_config') {
+            html += generateStpConfigForm(parameters);
+        } else if (moduleId === 'ospf_config') {
+            html += generateOspfConfigForm(parameters);
+        } else {
+            // 通用表单生成
+            html += generateGenericForm(parameters);
+        }
+
+        return html;
+    }
+
+    // 生成VLAN配置表单
+    function generateVlanConfigForm(parameters) {
+        let html = '';
+
+        // 基础VLAN配置组
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-layer-group me-2"></i>基础VLAN配置
+            </div>`;
+
+        // 创建VLAN开关
+        if (parameters.create_vlan) {
+            html += generateFormField('create_vlan', parameters.create_vlan);
+        }
+
+        // VLAN ID和名称（依赖于create_vlan）
+        html += `<div class="conditional-field" data-depends-on="create_vlan">`;
+        if (parameters.vlan_id) {
+            html += generateFormField('vlan_id', parameters.vlan_id);
+        }
+        if (parameters.vlan_name) {
+            html += generateFormField('vlan_name', parameters.vlan_name);
+        }
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 接口配置组
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-ethernet me-2"></i>接口配置
+            </div>`;
+
+        // 配置接口开关
+        if (parameters.configure_interface) {
+            html += generateFormField('configure_interface', parameters.configure_interface);
+        }
+
+        // 接口相关参数（依赖于configure_interface）
+        html += `<div class="conditional-field" data-depends-on="configure_interface">`;
+        if (parameters.interface) {
+            html += generateFormField('interface', parameters.interface);
+        }
+        if (parameters.port_mode) {
+            html += generateFormField('port_mode', parameters.port_mode);
+        }
+
+        // 端口模式相关字段（依赖于port_mode选择）
+        html += `<div class="conditional-field port-mode-fields" data-depends-on="port_mode" style="display: none;">`;
+
+        // PVID字段（access和trunk模式都需要，但标签不同）
+        if (parameters.pvid) {
+            html += generateFormField('pvid', parameters.pvid);
+        }
+
+        // 允许VLAN字段（仅trunk模式需要）
+        if (parameters.allowed_vlans) {
+            html += `<div class="trunk-only-field" style="display: none;">`;
+            html += generateFormField('allowed_vlans', parameters.allowed_vlans);
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 删除了VLAN接口IP配置组
+
+        return html;
+    }
+
+    // 生成接口IP配置表单
+    function generateInterfaceIpForm(parameters) {
+        let html = `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-network-wired me-2"></i>接口IP配置
+            </div>`;
+
+        // 接口IP配置开关
+        if (parameters.enable_interface_ip) {
+            html += generateFormField('enable_interface_ip', parameters.enable_interface_ip);
+        }
+
+        // 接口IP配置参数（依赖于enable_interface_ip）
+        html += `<div class="conditional-field" data-depends-on="enable_interface_ip">`;
+        const interfaceParams = ['interface_entries'];
+        interfaceParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        // 其他参数
+        const excludeParams = ['enable_interface_ip', 'interface_entries'];
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        if (sortedParams.length > 0) {
+            sortedParams.forEach(([paramName, param]) => {
+                html += generateFormField(paramName, param);
+            });
+        }
+
+        html += `</div>`;
+        return html;
+    }
+
+    // 生成静态路由配置表单
+    function generateStaticRouteForm(parameters) {
+        let html = `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-route me-2"></i>静态路由配置
+            </div>`;
+
+        // 静态路由配置开关
+        if (parameters.enable_static_route) {
+            html += generateFormField('enable_static_route', parameters.enable_static_route);
+        }
+
+        // 静态路由配置参数（依赖于enable_static_route）
+        html += `<div class="conditional-field" data-depends-on="enable_static_route">`;
+        const routeParams = ['route_entries'];
+        routeParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        // 其他参数
+        const excludeParams = ['enable_static_route', 'route_entries'];
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        if (sortedParams.length > 0) {
+            sortedParams.forEach(([paramName, param]) => {
+                html += generateFormField(paramName, param);
+            });
+        }
+
+        html += `</div>`;
+        return html;
+    }
+
+    // 生成DHCP服务配置表单
+    function generateDhcpServiceForm(parameters) {
+        let html = '';
+
+        // DHCP服务器配置组
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-server me-2"></i>DHCP服务器配置
+            </div>`;
+
+        // DHCP服务开关
+        if (parameters.enable_dhcp_server) {
+            html += generateFormField('enable_dhcp_server', parameters.enable_dhcp_server);
+        }
+
+        // DHCP服务器相关参数（依赖于enable_dhcp_server）
+        html += `<div class="conditional-field" data-depends-on="enable_dhcp_server">`;
+
+        // 华为特有的地址池类型选择
+        if (currentVendor === 'huawei' && parameters.dhcp_type) {
+            html += generateFormField('dhcp_type', parameters.dhcp_type);
+        }
+
+        // 根据厂商显示不同的参数
+        if (currentVendor === 'huawei') {
+            // 华为：根据地址池类型显示不同参数
+
+            // 全局地址池参数（依赖于dhcp_type为global）
+            html += `<div class="conditional-field" data-depends-on="dhcp_type" data-depends-value="global">`;
+            const globalParams = ['pool_name', 'network', 'mask', 'gateway', 'dns_servers', 'excluded_addresses', 'lease_time'];
+            globalParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            // 接口地址池参数（依赖于dhcp_type为interface）
+            html += `<div class="conditional-field" data-depends-on="dhcp_type" data-depends-value="interface">`;
+            const interfaceParams = ['vlanif', 'interface_ip', 'interface_description', 'gateway', 'dns_servers', 'excluded_addresses', 'lease_time'];
+            interfaceParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+        } else {
+            // H3C、思科、锐捷：统一的地址池模式
+            const serverParams = ['pool_name', 'network', 'mask', 'gateway', 'dns_servers', 'excluded_addresses', 'lease_time'];
+            serverParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+
+            // 接口配置参数（H3C、思科、锐捷）
+            if (parameters.enable_interface) {
+                html += generateFormField('enable_interface', parameters.enable_interface);
+            }
+
+            // 接口配置参数（依赖于enable_interface）
+            html += `<div class="conditional-field" data-depends-on="enable_interface">`;
+            const interfaceParams = ['interface'];
+            interfaceParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+
+        // DHCP中继配置组
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-exchange-alt me-2"></i>DHCP中继配置
+            </div>`;
+
+        // DHCP中继开关
+        if (parameters.enable_dhcp_relay) {
+            html += generateFormField('enable_dhcp_relay', parameters.enable_dhcp_relay);
+        }
+
+        // DHCP中继相关参数（依赖于enable_dhcp_relay）
+        html += `<div class="conditional-field" data-depends-on="enable_dhcp_relay">`;
+        const relayParams = ['relay_server_address', 'relay_interface'];
+        relayParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 高级配置组
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-cogs me-2"></i>高级配置
+            </div>`;
+
+        // 其他参数
+        const excludeParams = ['enable_dhcp_server', 'dhcp_type', 'pool_name', 'network', 'mask', 'gateway', 'vlanif', 'interface_ip', 'interface_description', 'dns_servers', 'excluded_addresses', 'lease_time', 'enable_dhcp_relay', 'relay_server_address', 'relay_interface', 'enable_interface', 'interface'];
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        sortedParams.forEach(([paramName, param]) => {
+            html += generateFormField(paramName, param);
+        });
+
+        html += `</div>`;
+        return html;
+    }
+
+    // 生成VRRP配置表单
+    function generateVrrpConfigForm(parameters) {
+        let html = '';
+
+        // 基础VRRP配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-shield-alt me-2"></i>基础VRRP配置
+            </div>`;
+
+        // 根据厂商显示不同的组ID参数名
+        let groupIdParam = 'vrrp_group_id';
+        if (currentVendor === 'cisco') {
+            groupIdParam = 'hsrp_group_id';
+        }
+
+        const basicParams = ['vlan_id', 'interface_ip', groupIdParam, 'virtual_ip', 'priority'];
+        basicParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+
+        html += `</div>`;
+
+        // 高级配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-cogs me-2"></i>高级配置
+            </div>`;
+
+        // 高级配置开关
+        if (parameters.configure_advanced) {
+            html += generateFormField('configure_advanced', parameters.configure_advanced);
+        }
+
+        // 高级配置参数（依赖于configure_advanced）
+        html += `<div class="conditional-field" data-depends-on="configure_advanced">`;
+        let advancedParams = [];
+        if (currentVendor === 'cisco') {
+            advancedParams = ['preempt_mode', 'preempt_delay', 'hello_interval', 'hold_time'];
+        } else {
+            advancedParams = ['preempt_mode', 'preempt_delay', 'advertisement_interval'];
+        }
+        advancedParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 认证配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-key me-2"></i>认证配置
+            </div>`;
+
+        // 认证配置开关
+        if (parameters.configure_authentication) {
+            html += generateFormField('configure_authentication', parameters.configure_authentication);
+        }
+
+        // 认证配置参数（依赖于configure_authentication）
+        html += `<div class="conditional-field" data-depends-on="configure_authentication">`;
+        let authParams = [];
+        if (currentVendor === 'h3c') {
+            authParams = ['auth_mode', 'auth_key'];
+        } else {
+            authParams = ['auth_key'];
+        }
+        authParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 接口跟踪配置（H3C、思科、锐捷）
+        if (currentVendor !== 'huawei') {
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-search me-2"></i>接口跟踪配置
+                </div>`;
+
+            // 接口跟踪开关
+            if (parameters.configure_track) {
+                html += generateFormField('configure_track', parameters.configure_track);
+            }
+
+            // 接口跟踪参数（依赖于configure_track）
+            html += `<div class="conditional-field" data-depends-on="configure_track">`;
+            const trackParams = ['track_interface', 'track_priority_reduce'];
+            trackParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+        }
+
+        // 华为特有的高级功能
+        if (currentVendor === 'huawei') {
+            // BFD快速切换配置
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-bolt me-2"></i>BFD快速切换配置
+                </div>`;
+
+            // BFD快速切换开关
+            if (parameters.configure_bfd) {
+                html += generateFormField('configure_bfd', parameters.configure_bfd);
+            }
+
+            // BFD快速切换参数（依赖于configure_bfd）
+            html += `<div class="conditional-field" data-depends-on="configure_bfd">`;
+            const bfdParams = ['bfd_session_name', 'bfd_peer_ip', 'bfd_local_discriminator', 'bfd_remote_discriminator', 'bfd_priority_reduce'];
+            bfdParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+
+            // 动态BFD配置
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-sync-alt me-2"></i>动态BFD配置
+                </div>`;
+
+            // 动态BFD开关
+            if (parameters.configure_dynamic_bfd) {
+                html += generateFormField('configure_dynamic_bfd', parameters.configure_dynamic_bfd);
+            }
+
+            // 动态BFD参数（依赖于configure_dynamic_bfd）
+            html += `<div class="conditional-field" data-depends-on="configure_dynamic_bfd">`;
+            const dynamicBfdParams = ['dynamic_bfd_template'];
+            dynamicBfdParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+
+            // 接口监视配置
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-eye me-2"></i>接口监视配置
+                </div>`;
+
+            // 接口监视开关
+            if (parameters.configure_interface_monitor) {
+                html += generateFormField('configure_interface_monitor', parameters.configure_interface_monitor);
+            }
+
+            // 接口监视参数（依赖于configure_interface_monitor）
+            html += `<div class="conditional-field" data-depends-on="configure_interface_monitor">`;
+            const interfaceMonitorParams = ['monitor_interface', 'monitor_priority_reduce'];
+            interfaceMonitorParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+
+            // BFD上行链路监视配置
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-link me-2"></i>BFD上行链路监视配置
+                </div>`;
+
+            // BFD上行链路监视开关
+            if (parameters.configure_bfd_uplink) {
+                html += generateFormField('configure_bfd_uplink', parameters.configure_bfd_uplink);
+            }
+
+            // BFD上行链路监视参数（依赖于configure_bfd_uplink）
+            html += `<div class="conditional-field" data-depends-on="configure_bfd_uplink">`;
+            const bfdUplinkParams = ['bfd_uplink_session_name', 'bfd_uplink_peer_ip', 'bfd_uplink_local_discriminator', 'bfd_uplink_remote_discriminator', 'bfd_uplink_priority_reduce'];
+            bfdUplinkParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+
+            // NQA上行链路监视配置
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-satellite-dish me-2"></i>NQA上行链路监视配置
+                </div>`;
+
+            // NQA上行链路监视开关
+            if (parameters.configure_nqa_uplink) {
+                html += generateFormField('configure_nqa_uplink', parameters.configure_nqa_uplink);
+            }
+
+            // NQA上行链路监视参数（依赖于configure_nqa_uplink）
+            html += `<div class="conditional-field" data-depends-on="configure_nqa_uplink">`;
+            const nqaUplinkParams = ['nqa_test_instance', 'nqa_destination_ip', 'nqa_priority_reduce'];
+            nqaUplinkParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+
+            // 路由监视配置
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-route me-2"></i>路由监视配置
+                </div>`;
+
+            // 路由监视开关
+            if (parameters.configure_route_monitor) {
+                html += generateFormField('configure_route_monitor', parameters.configure_route_monitor);
+            }
+
+            // 路由监视参数（依赖于configure_route_monitor）
+            html += `<div class="conditional-field" data-depends-on="configure_route_monitor">`;
+            const routeMonitorParams = ['monitor_route', 'route_priority_reduce'];
+            routeMonitorParams.forEach(paramName => {
+                if (parameters[paramName]) {
+                    html += generateFormField(paramName, parameters[paramName]);
+                }
+            });
+            html += `</div>`;
+
+            html += `</div>`;
+        }
+
+        // 其他参数
+        let excludeParams = [...basicParams];
+
+        // 添加高级配置参数
+        if (currentVendor === 'cisco') {
+            excludeParams.push(...['preempt_mode', 'preempt_delay', 'hello_interval', 'hold_time']);
+        } else {
+            excludeParams.push(...['preempt_mode', 'preempt_delay', 'advertisement_interval']);
+        }
+
+        // 添加认证配置参数
+        if (currentVendor === 'h3c') {
+            excludeParams.push(...['auth_mode', 'auth_key']);
+        } else {
+            excludeParams.push('auth_key');
+        }
+
+        // 添加开关参数
+        excludeParams.push('configure_advanced', 'configure_authentication');
+
+        // 添加接口跟踪参数（非华为厂商）
+        if (currentVendor !== 'huawei') {
+            excludeParams.push('configure_track', 'track_interface', 'track_priority_reduce');
+        }
+
+        // 添加华为特有的参数
+        if (currentVendor === 'huawei') {
+            excludeParams.push(
+                'configure_bfd', 'bfd_session_name', 'bfd_peer_ip', 'bfd_local_discriminator', 'bfd_remote_discriminator', 'bfd_priority_reduce',
+                'configure_dynamic_bfd', 'dynamic_bfd_template',
+                'configure_interface_monitor', 'monitor_interface', 'monitor_priority_reduce',
+                'configure_bfd_uplink', 'bfd_uplink_session_name', 'bfd_uplink_peer_ip', 'bfd_uplink_local_discriminator', 'bfd_uplink_remote_discriminator', 'bfd_uplink_priority_reduce',
+                'configure_nqa_uplink', 'nqa_test_instance', 'nqa_destination_ip', 'nqa_priority_reduce',
+                'configure_route_monitor', 'monitor_route', 'route_priority_reduce'
+            );
+        }
+
+        // 添加厂商特定的组ID参数
+        excludeParams.push('vrrp_group_id', 'hsrp_group_id');
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        if (sortedParams.length > 0) {
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-sliders-h me-2"></i>其他配置
+                </div>`;
+
+            sortedParams.forEach(([paramName, param]) => {
+                html += generateFormField(paramName, param);
+            });
+
+            html += `</div>`;
+        }
+
+        return html;
+    }
+
+    // 生成端口聚合配置表单
+    function generatePortAggregationForm(parameters) {
+        let html = '';
+
+        // 基础聚合配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-link me-2"></i>基础聚合配置
+            </div>`;
+
+        const basicParams = ['mode', 'lag_id', 'description', 'interfaces'];
+        basicParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+
+        html += `</div>`;
+
+        // 负载均衡配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-balance-scale me-2"></i>负载均衡配置
+            </div>`;
+
+        // 负载均衡开关
+        if (parameters.configure_load_balance) {
+            html += generateFormField('configure_load_balance', parameters.configure_load_balance);
+        }
+
+        // 负载均衡参数（依赖于configure_load_balance）
+        html += `<div class="conditional-field" data-depends-on="configure_load_balance">`;
+        const loadBalanceParams = ['load_balance_mode'];
+        loadBalanceParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // LACP配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-cogs me-2"></i>LACP配置
+            </div>`;
+
+        // LACP优先级开关
+        if (parameters.configure_lacp_priority) {
+            html += generateFormField('configure_lacp_priority', parameters.configure_lacp_priority);
+        }
+
+        // LACP优先级参数（依赖于configure_lacp_priority）
+        html += `<div class="conditional-field" data-depends-on="configure_lacp_priority">`;
+        const lacpPriorityParams = ['lacp_system_priority', 'lacp_port_priority'];
+        lacpPriorityParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        // LACP超时开关
+        if (parameters.configure_lacp_timeout) {
+            html += generateFormField('configure_lacp_timeout', parameters.configure_lacp_timeout);
+        }
+
+        // LACP超时参数（依赖于configure_lacp_timeout）
+        html += `<div class="conditional-field" data-depends-on="configure_lacp_timeout">`;
+        const lacpTimeoutParams = ['lacp_timeout'];
+        lacpTimeoutParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 高级配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-sliders-h me-2"></i>高级配置
+            </div>`;
+
+        // 高级配置开关
+        if (parameters.configure_advanced) {
+            html += generateFormField('configure_advanced', parameters.configure_advanced);
+        }
+
+        // 高级配置参数（依赖于configure_advanced）
+        html += `<div class="conditional-field" data-depends-on="configure_advanced">`;
+        const advancedParams = ['min_active_links', 'local_preference'];
+        advancedParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 其他参数
+        const excludeParams = [...basicParams, ...loadBalanceParams, ...lacpPriorityParams, ...lacpTimeoutParams, ...advancedParams, 'configure_load_balance', 'configure_lacp_priority', 'configure_lacp_timeout', 'configure_advanced'];
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        if (sortedParams.length > 0) {
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-ellipsis-h me-2"></i>其他配置
+                </div>`;
+
+            sortedParams.forEach(([paramName, param]) => {
+                html += generateFormField(paramName, param);
+            });
+
+            html += `</div>`;
+        }
+
+        return html;
+    }
+
+    // 生成STP配置表单
+    function generateStpConfigForm(parameters) {
+        let html = '';
+
+        // 基础STP配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-tree me-2"></i>基础STP配置
+            </div>`;
+
+        const basicParams = ['stp_mode'];
+        basicParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+
+        // 全局启用开关
+        if (parameters.global_enable) {
+            html += generateFormField('global_enable', parameters.global_enable);
+        }
+
+        // BPDU保护开关
+        if (parameters.bpdu_protection) {
+            html += generateFormField('bpdu_protection', parameters.bpdu_protection);
+        }
+
+        // 根桥配置和桥优先级
+        const rootParams = ['root_bridge_config', 'bridge_priority'];
+        rootParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+
+        html += `</div>`;
+
+        // MSTP配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-sitemap me-2"></i>MSTP配置
+            </div>`;
+
+        const mstpParams = ['region_name', 'revision_level', 'instance_vlan_mapping', 'instance_id'];
+        mstpParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+
+        html += `</div>`;
+
+        // 时间参数配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-clock me-2"></i>时间参数配置
+            </div>`;
+
+        // 时间参数开关
+        if (parameters.configure_timing_params) {
+            html += generateFormField('configure_timing_params', parameters.configure_timing_params);
+        }
+
+        // 时间参数（依赖于configure_timing_params）
+        html += `<div class="conditional-field" data-depends-on="configure_timing_params">`;
+        const timingParams = ['hello_time', 'forward_delay', 'max_age'];
+        timingParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 端口配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-ethernet me-2"></i>端口配置
+            </div>`;
+
+        // 端口配置开关
+        if (parameters.configure_port_blocking) {
+            html += generateFormField('configure_port_blocking', parameters.configure_port_blocking);
+        }
+
+        // 端口配置参数（依赖于configure_port_blocking）
+        html += `<div class="conditional-field" data-depends-on="configure_port_blocking">`;
+        const portParams = ['interface', 'port_cost', 'edge_port', 'edge_port_interface', 'root_protection', 'root_protection_interface', 'loop_protection', 'loop_protection_interface'];
+        portParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 其他参数
+        const excludeParams = [...basicParams, ...rootParams, ...mstpParams, ...timingParams, ...portParams, 'global_enable', 'bpdu_protection', 'configure_timing_params', 'configure_port_blocking'];
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        if (sortedParams.length > 0) {
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-ellipsis-h me-2"></i>其他配置
+                </div>`;
+
+            sortedParams.forEach(([paramName, param]) => {
+                html += generateFormField(paramName, param);
+            });
+
+            html += `</div>`;
+        }
+
+        return html;
+    }
+
+    // 生成OSPF配置表单
+    function generateOspfConfigForm(parameters) {
+        let html = '';
+
+        // 基础OSPF配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-route me-2"></i>基础OSPF配置
+            </div>`;
+
+        // 基础配置开关（如果存在）
+        if (parameters.enable_basic_config) {
+            html += generateFormField('enable_basic_config', parameters.enable_basic_config);
+        }
+
+        // 基础配置参数（依赖于enable_basic_config）
+        html += `<div class="conditional-field" data-depends-on="enable_basic_config">`;
+        const basicParams = ['process_id', 'router_id', 'areas'];
+        basicParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 区域认证配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-key me-2"></i>区域认证配置
+            </div>`;
+
+        // 区域认证开关
+        if (parameters.configure_area_auth) {
+            html += generateFormField('configure_area_auth', parameters.configure_area_auth);
+        }
+
+        // 区域认证参数（依赖于configure_area_auth）
+        html += `<div class="conditional-field" data-depends-on="configure_area_auth">`;
+        const areaAuthParams = ['area_auth_type', 'area_auth_area', 'area_auth_password'];
+        areaAuthParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 接口认证配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-shield-alt me-2"></i>接口认证配置
+            </div>`;
+
+        // 接口认证开关
+        if (parameters.configure_interface_auth) {
+            html += generateFormField('configure_interface_auth', parameters.configure_interface_auth);
+        }
+
+        // 接口认证参数（依赖于configure_interface_auth）
+        html += `<div class="conditional-field" data-depends-on="configure_interface_auth">`;
+        const interfaceAuthParams = ['interface_auth_interface', 'interface_auth_type', 'interface_auth_password'];
+        interfaceAuthParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 接口配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-ethernet me-2"></i>接口配置
+            </div>`;
+
+        // 接口配置开关
+        if (parameters.configure_interface) {
+            html += generateFormField('configure_interface', parameters.configure_interface);
+        }
+
+        // 接口配置参数（依赖于configure_interface）
+        html += `<div class="conditional-field" data-depends-on="configure_interface">`;
+        const interfaceParams = ['interface_name', 'configure_interface_routing', 'interface_cost', 'interface_priority'];
+        interfaceParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 定时器配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-clock me-2"></i>定时器配置
+            </div>`;
+
+        // 定时器配置开关
+        if (parameters.configure_timers) {
+            html += generateFormField('configure_timers', parameters.configure_timers);
+        }
+
+        // 定时器配置参数（依赖于configure_timers）
+        html += `<div class="conditional-field" data-depends-on="configure_timers">`;
+        const timerParams = ['hello_interval', 'dead_interval'];
+        timerParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 路由引入配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-share-alt me-2"></i>路由引入配置
+            </div>`;
+
+        // 路由引入配置开关
+        if (parameters.configure_redistribute) {
+            html += generateFormField('configure_redistribute', parameters.configure_redistribute);
+        }
+
+        // 路由引入配置参数（依赖于configure_redistribute）
+        html += `<div class="conditional-field" data-depends-on="configure_redistribute">`;
+        const redistributeParams = ['redistribute_static', 'redistribute_direct', 'redistribute_rip', 'redistribute_bgp', 'redistribute_isis', 'redistribute_cost', 'redistribute_type'];
+        redistributeParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 高级配置
+        html += `<div class="form-group">
+            <div class="form-group-title">
+                <i class="fas fa-cogs me-2"></i>高级配置
+            </div>`;
+
+        // 高级配置开关
+        if (parameters.configure_advanced) {
+            html += generateFormField('configure_advanced', parameters.configure_advanced);
+        }
+
+        // 高级配置参数（依赖于configure_advanced）
+        html += `<div class="conditional-field" data-depends-on="configure_advanced">`;
+        const advancedParams = ['stub_area', 'nssa_area', 'area_range'];
+        advancedParams.forEach(paramName => {
+            if (parameters[paramName]) {
+                html += generateFormField(paramName, parameters[paramName]);
+            }
+        });
+        html += `</div>`;
+
+        html += `</div>`;
+
+        // 其他参数
+        const excludeParams = [
+            ...basicParams, ...areaAuthParams, ...interfaceAuthParams, ...interfaceParams,
+            ...timerParams, ...redistributeParams, ...advancedParams,
+            'enable_basic_config', 'configure_area_auth', 'configure_interface_auth',
+            'configure_interface', 'configure_timers', 'configure_redistribute', 'configure_advanced'
+        ];
+        const sortedParams = Object.entries(parameters)
+            .filter(([paramName]) => !excludeParams.includes(paramName))
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        if (sortedParams.length > 0) {
+            html += `<div class="form-group">
+                <div class="form-group-title">
+                    <i class="fas fa-ellipsis-h me-2"></i>其他配置
+                </div>`;
+
+            sortedParams.forEach(([paramName, param]) => {
+                html += generateFormField(paramName, param);
+            });
+
+            html += `</div>`;
+        }
+
+        return html;
+    }
+
+    // 生成通用表单
+    function generateGenericForm(parameters) {
+        let html = `<div class="form-group">`;
+
+        const sortedParams = Object.entries(parameters)
+            .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999));
+
+        sortedParams.forEach(([paramName, param]) => {
+            html += generateFormField(paramName, param);
+        });
+
+        html += `</div>`;
+        return html;
+    }
+
+    // 生成表单字段 - 支持开关控制和端口输入
+    function generateFormField(paramName, param) {
+        const fieldId = `${paramName}_${Math.random().toString(36).substr(2, 9)}`;
+        let html = '';
+
+        // 处理数组类型参数（动态表单）
+        if (param.type === 'array') {
+            return generateArrayFormField(paramName, param);
+        }
+
+        // 普通字段包装
+        html += `<div class="mb-3">`;
+
+        // 生成动态标签
+        const dynamicLabel = getDynamicFieldLabel(paramName, param);
+        html += `<label class="form-label" for="${fieldId}" id="label_${paramName}">
+            ${dynamicLabel}
+            ${param.required ? '<span class="text-danger">*</span>' : ''}
+        </label>`;
+
+        // 根据参数类型生成不同的输入控件
+        if (param.type === 'boolean') {
+            // 开关控件
+            html += `<div class="d-flex align-items-center gap-3">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="${fieldId}" name="${paramName}"
+                        ${param.default ? 'checked' : ''}
+                        onchange="handleToggleChange('${paramName}', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="toggle-label">${param.default ? '已启用' : '已禁用'}</span>
+            </div>`;
+        } else if (isInterfaceField(paramName)) {
+            // 端口输入组合控件
+            html += generatePortInputField(fieldId, paramName, param);
+        } else if (param.options && param.options.length > 0) {
+            // 下拉选择
+            let changeHandler = '';
+            if (paramName === 'port_mode') {
+                changeHandler = `onchange="handlePortModeChange(this.value)"`;
+            } else if (paramName === 'dhcp_type') {
+                changeHandler = `onchange="handleSelectChange('${paramName}', this.value)"`;
+            }
+
+            html += `<select class="form-control" id="${fieldId}" name="${paramName}" ${changeHandler}>`;
+            html += `<option value="">请选择...</option>`;
+            param.options.forEach(option => {
+                const selected = param.default === option ? 'selected' : '';
+                html += `<option value="${option}" ${selected}>${option}</option>`;
+            });
+            html += `</select>`;
+        } else if (param.type === 'integer') {
+            // 数字输入
+            html += `<input type="number" class="form-control"
+                id="${fieldId}" name="${paramName}"
+                placeholder="${param.placeholder || ''}"
+                value="${param.default || ''}"
+                ${param.range ? `min="${param.range[0]}" max="${param.range[1]}"` : ''}
+                ${param.required ? 'required' : ''}>`;
+        } else if (param.max_length && param.max_length > 100) {
+            // 文本域
+            html += `<textarea class="form-control" id="${fieldId}" name="${paramName}"
+                placeholder="${param.placeholder || ''}" rows="3"
+                ${param.max_length ? `maxlength="${param.max_length}"` : ''}
+                ${param.required ? 'required' : ''}>${param.default || ''}</textarea>`;
+        } else {
+            // 普通文本输入
+            html += `<input type="text" class="form-control"
+                id="${fieldId}" name="${paramName}"
+                placeholder="${param.placeholder || ''}"
+                value="${param.default || ''}"
+                ${param.max_length ? `maxlength="${param.max_length}"` : ''}
+                ${param.required ? 'required' : ''}>`;
+        }
+
+        // 添加帮助文本
+        if (param.help || param.placeholder) {
+            html += `<small class="form-text text-muted">${param.help || param.placeholder}</small>`;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    // 检查是否是接口字段
+    function isInterfaceField(paramName) {
+        // 明确的接口名称字段
+        const interfaceFields = ['interface', 'interfaces', 'member_interfaces', 'trunk_interfaces', 'interface_name'];
+
+        // 排除不是接口名称的字段（即使包含interface或port关键词）
+        const excludeFields = [
+            'port_mode', 'port_type', 'port_status', 'port_speed', 'port_duplex',
+            'interface_description', 'interface_mode', 'interface_type', 'interface_status', 'interface_speed',
+            // OSPF接口认证和配置相关字段
+            'interface_auth_password', 'interface_auth_type', 'interface_cost', 'interface_priority',
+            // 其他接口属性字段
+            'interface_ip', 'interface_netmask', 'interface_gateway'
+        ];
+
+        // 如果在排除列表中，直接返回false
+        if (excludeFields.includes(paramName)) {
+            return false;
+        }
+
+        // 如果在明确的接口字段列表中，返回true
+        if (interfaceFields.includes(paramName)) {
+            return true;
+        }
+
+        // 对于包含interface的字段，只有当它明确表示接口名称时才返回true
+        if (paramName.includes('interface')) {
+            // 只有这些模式才被认为是接口名称字段
+            const interfaceNamePatterns = [
+                /^interface$/,
+                /^.*_interface$/,
+                /^interface_.*$/
+            ];
+
+            // 但排除明显不是接口名称的字段（但保留interface_name作为接口字段）
+            const nonInterfacePatterns = [
+                /_description$/,
+                /_mode$/,
+                /_type$/,
+                /_status$/,
+                /_speed$/,
+                /_ip$/,
+                /_address$/,
+                /_password$/,
+                /_cost$/,
+                /_priority$/
+            ];
+
+            // 检查是否匹配非接口名称模式
+            if (nonInterfacePatterns.some(pattern => pattern.test(paramName))) {
+                return false;
+            }
+
+            // 检查是否匹配接口名称模式
+            return interfaceNamePatterns.some(pattern => pattern.test(paramName));
+        }
+
+        // 对于port字段，只有port和ports被认为是接口字段
+        return paramName === 'port' || paramName === 'ports';
+    }
+
+    // 生成端口输入字段（删除了预览功能）
+    function generatePortInputField(fieldId, paramName, param) {
+        const prefixSelectId = `${fieldId}_prefix`;
+        const numberInputId = `${fieldId}_number`;
+
+        // 根据当前厂商获取接口前缀选项
+        const interfacePrefixes = getInterfacePrefixes(currentVendor);
+
+        let html = `<div class="port-input-group" data-param="${paramName}">
+            <div class="row">
+                <div class="col-md-6">
+                    <select class="form-control port-prefix-select" id="${prefixSelectId}"
+                        onchange="updatePortCombination('${paramName}')">
+                        <option value="">选择接口类型...</option>`;
+
+        interfacePrefixes.forEach(prefix => {
+            html += `<option value="${prefix.value}">${prefix.label}</option>`;
+        });
+
+        html += `</select>
+                </div>
+                <div class="col-md-6">
+                    <input type="text" class="form-control port-number-input" id="${numberInputId}"
+                        placeholder="端口编号 (如: 0/0/1,0/0/4,0/0/9-12)"
+                        oninput="updatePortCombination('${paramName}')"
+                        ${param.required ? 'required' : ''}>
+                </div>
+            </div>
+            <input type="hidden" id="${fieldId}" name="${paramName}">
+        </div>`;
+
+        return html;
+    }
+
+    // 获取接口前缀选项
+    function getInterfacePrefixes(vendor) {
+        const prefixLabels = {
+            'huawei': [
+                { value: 'GigabitEthernet', label: 'GigabitEthernet (千兆以太网)' },
+                { value: 'XGigabitEthernet', label: 'XGigabitEthernet (万兆以太网)' },
+                { value: '10GE', label: '10GE (万兆以太网简写)' },
+                { value: '25GE', label: '25GE (25G以太网)' },
+                { value: '40GE', label: '40GE (40G以太网)' },
+                { value: '100GE', label: '100GE (百G以太网)' },
+                { value: 'Vlanif', label: 'Vlanif (VLAN接口)' },
+                { value: 'Eth-Trunk', label: 'Eth-Trunk (聚合接口)' },
+                { value: 'LoopBack', label: 'LoopBack (环回接口)' }
+            ],
+            'h3c': [
+                { value: 'Ethernet', label: 'Ethernet (以太网)' },
+                { value: 'GigabitEthernet', label: 'GigabitEthernet (千兆以太网)' },
+                { value: 'Ten-GigabitEthernet', label: 'Ten-GigabitEthernet (万兆以太网)' },
+                { value: 'Twenty-FiveGigE', label: 'Twenty-FiveGigE (25G以太网)' },
+                { value: 'FortyGigE', label: 'FortyGigE (40G以太网)' },
+                { value: 'HundredGigE', label: 'HundredGigE (百G以太网)' },
+                { value: 'Vlan-interface', label: 'Vlan-interface (VLAN接口)' },
+                { value: 'Bridge-Aggregation', label: 'Bridge-Aggregation (聚合接口)' },
+                { value: 'LoopBack', label: 'LoopBack (环回接口)' }
+            ],
+            'cisco': [
+                { value: 'FastEthernet', label: 'FastEthernet (快速以太网)' },
+                { value: 'GigabitEthernet', label: 'GigabitEthernet (千兆以太网)' },
+                { value: 'TenGigabitEthernet', label: 'TenGigabitEthernet (万兆以太网)' },
+                { value: 'TwentyFiveGigE', label: 'TwentyFiveGigE (25G以太网)' },
+                { value: 'FortyGigabitEthernet', label: 'FortyGigabitEthernet (40G以太网)' },
+                { value: 'HundredGigE', label: 'HundredGigE (百G以太网)' },
+                { value: 'Vlan', label: 'Vlan (VLAN接口)' },
+                { value: 'Port-channel', label: 'Port-channel (聚合接口)' },
+                { value: 'Loopback', label: 'Loopback (环回接口)' }
+            ],
+            'ruijie': [
+                { value: 'FastEthernet', label: 'FastEthernet (快速以太网)' },
+                { value: 'GigabitEthernet', label: 'GigabitEthernet (千兆以太网)' },
+                { value: 'TenGigabitEthernet', label: 'TenGigabitEthernet (万兆以太网)' },
+                { value: 'TwentyFiveGigE', label: 'TwentyFiveGigE (25G以太网)' },
+                { value: 'FortyGigabitEthernet', label: 'FortyGigabitEthernet (40G以太网)' },
+                { value: 'HundredGigE', label: 'HundredGigE (百G以太网)' },
+                { value: 'Vlan', label: 'Vlan (VLAN接口)' },
+                { value: 'AggregatePort', label: 'AggregatePort (聚合接口)' },
+                { value: 'Loopback', label: 'Loopback (环回接口)' }
+            ]
+        };
+
+        return prefixLabels[vendor] || prefixLabels['huawei'];
+    }
+
+    // 更新所有端口输入字段的接口前缀选项
+    function updateAllPortPrefixes() {
+        const portInputGroups = document.querySelectorAll('.port-input-group');
+        const interfacePrefixes = getInterfacePrefixes(currentVendor);
+
+        portInputGroups.forEach(group => {
+            const prefixSelect = group.querySelector('.port-prefix-select');
+            if (prefixSelect) {
+                const currentValue = prefixSelect.value;
+
+                // 清空现有选项
+                prefixSelect.innerHTML = '<option value="">选择接口类型...</option>';
+
+                // 添加新的厂商特定选项
+                interfacePrefixes.forEach(prefix => {
+                    const option = document.createElement('option');
+                    option.value = prefix.value;
+                    option.textContent = prefix.label;
+                    if (prefix.value === currentValue) {
+                        option.selected = true;
+                    }
+                    prefixSelect.appendChild(option);
+                });
+
+                // 如果当前值在新厂商中不存在，清空选择并更新组合
+                if (currentValue && !interfacePrefixes.some(p => p.value === currentValue)) {
+                    prefixSelect.value = '';
+                    const paramName = group.getAttribute('data-param');
+                    if (paramName) {
+                        updatePortCombination(paramName);
+                    }
+                }
+            }
+        });
+    }
+
+    // 更新厂商按钮状态
+    function updateVendorButtonsState() {
+        const vendorButtons = document.querySelectorAll('.vendor-btn');
+        vendorButtons.forEach(btn => {
+            if (currentStep === 1) {
+                btn.classList.remove('disabled');
+            } else {
+                btn.classList.add('disabled');
+            }
+        });
+    }
+
+    // 获取动态字段标签
+    function getDynamicFieldLabel(paramName, param) {
+        const originalLabel = param.description || paramName;
+
+        // 特殊处理PVID字段
+        if (paramName === 'pvid') {
+            // 获取当前选择的端口模式
+            const portModeSelect = document.querySelector('select[name="port_mode"]');
+            const currentPortMode = portModeSelect ? portModeSelect.value : '';
+
+            if (currentPortMode === 'access') {
+                // access模式下的标签
+                if (currentVendor === 'huawei' || currentVendor === 'h3c') {
+                    return 'Default VLAN';
+                } else if (currentVendor === 'cisco' || currentVendor === 'ruijie') {
+                    return 'VLAN ID';
+                }
+            } else if (currentPortMode === 'trunk') {
+                // trunk模式下的标签
+                if (currentVendor === 'huawei' || currentVendor === 'h3c') {
+                    return 'PVID';
+                } else if (currentVendor === 'cisco' || currentVendor === 'ruijie') {
+                    return 'Native VLAN';
+                }
+            } else {
+                // 未选择模式时的默认标签
+                return '端口PVID';
+            }
+        }
+
+        return originalLabel;
+    }
+
+    // 更新字段标签（当厂商或端口模式改变时调用）
+    function updateFieldLabels() {
+        // 更新PVID字段标签
+        const pvidLabel = document.getElementById('label_pvid');
+        if (pvidLabel) {
+            const newLabel = getDynamicFieldLabel('pvid', { description: '端口PVID' });
+            pvidLabel.innerHTML = newLabel + (pvidLabel.innerHTML.includes('text-danger') ? ' <span class="text-danger">*</span>' : '');
+        }
+    }
+
+    // 检查配置是否有效
+    function checkValidConfiguration(formData) {
+        console.log('检查配置有效性:', formData);
+
+        // 如果没有任何数据，肯定无效
+        if (!formData || Object.keys(formData).length === 0) {
+            console.log('无配置数据');
+            return false;
+        }
+
+        // 检查是否有任何启用的布尔开关
+        const enabledSwitches = Object.entries(formData).filter(([key, value]) => {
+            return typeof value === 'boolean' && value === true;
+        });
+
+        console.log('启用的开关:', enabledSwitches);
+
+        // 如果有启用的开关，认为配置有效
+        if (enabledSwitches.length > 0) {
+            return true;
+        }
+
+        // 检查是否有非空的字符串值（可能是直接填写的配置）
+        const nonEmptyValues = Object.entries(formData).filter(([key, value]) => {
+            return typeof value === 'string' && value.trim() !== '';
+        });
+
+        console.log('非空字符串值:', nonEmptyValues);
+
+        // 如果有非空值，也认为配置有效
+        if (nonEmptyValues.length > 0) {
+            return true;
+        }
+
+        console.log('配置无效：没有启用的开关或非空值');
+        return false;
+    }
+
+    // 处理端口模式变化
+    function handlePortModeChange(portMode) {
+        console.log('端口模式变化:', portMode);
+
+        // 获取端口模式相关字段容器
+        const portModeFields = document.querySelector('.port-mode-fields');
+        const trunkOnlyFields = document.querySelectorAll('.trunk-only-field');
+
+        if (portMode && portMode !== '') {
+            // 显示端口模式相关字段
+            if (portModeFields) {
+                portModeFields.style.display = 'block';
+                portModeFields.classList.add('show');
+            }
+
+            // 根据模式显示/隐藏trunk专用字段
+            trunkOnlyFields.forEach(field => {
+                if (portMode === 'trunk') {
+                    field.style.display = 'block';
+                } else {
+                    field.style.display = 'none';
+                }
+            });
+
+            // 更新PVID字段标签
+            updateFieldLabels();
+
+        } else {
+            // 隐藏端口模式相关字段
+            if (portModeFields) {
+                portModeFields.style.display = 'none';
+                portModeFields.classList.remove('show');
+            }
+
+            // 隐藏所有trunk专用字段
+            trunkOnlyFields.forEach(field => {
+                field.style.display = 'none';
+            });
+        }
+    }
+
+    // 生成默认表单
+    function generateDefaultForm(moduleId) {
+        return `
+            <div class="mb-3">
+                <label class="form-label">配置名称 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" name="config_name" placeholder="请输入配置名称" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">描述信息</label>
+                <input type="text" class="form-control" name="description" placeholder="请输入描述信息">
+            </div>
+        `;
+    }
+
+    // 删除了generatePreview函数，直接在generateFinalConfig中生成配置
+
+    // 收集表单数据（删除重复函数，使用下面的增强版）
+
+    // 调用后端API生成配置
+    async function generateConfigFromAPI(vendor, configType, parameters) {
+        console.log('调用API生成配置:', { vendor, configType, parameters });
+
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                vendor: vendor,
+                config_type: configType,
+                parameters: parameters
+            })
+        });
+
+        const data = await response.json();
+        console.log('API响应:', data);
+
+        if (data.success) {
+            const commands = data.commands || [];
+            if (commands.length === 0) {
+                throw new Error('生成的配置为空，请检查参数设置。确保至少启用一个配置选项。');
+            }
+            return commands.join('\n');
+        } else {
+            throw new Error(data.error || '配置生成失败');
+        }
+    }
+
+    // 生成最终配置
+    async function generateFinalConfig() {
+        console.log('🚀 开始生成最终配置');
+        console.log('当前步骤:', currentStep);
+        console.log('选中的模块:', Array.from(selectedModules));
+        console.log('当前厂商:', currentVendor);
+
+        const container = document.getElementById('finalContent');
+        let html = '';
+        let hasValidConfig = false;
+
+        // 检查是否有选中的模块
+        if (selectedModules.size === 0) {
+            console.log('❌ 没有选中任何模块');
+            container.innerHTML = '<div class="text-danger">没有选中任何配置模块</div>';
+            return;
+        }
+
+        try {
+            for (const moduleId of selectedModules) {
+                console.log(`\n📋 处理模块: ${moduleId}`);
+
+                // 检查表单区域是否存在（只查找配置表单，不查找模块选择卡片）
+                const formSection = document.querySelector(`.config-section[data-module="${moduleId}"]`);
+                console.log('表单区域:', formSection);
+
+                // 如果没找到，尝试在configForms容器中查找
+                if (!formSection) {
+                    const configFormsContainer = document.getElementById('configForms');
+                    const alternativeFormSection = configFormsContainer ?
+                        configFormsContainer.querySelector(`[data-module="${moduleId}"]`) : null;
+                    console.log('备用查找结果:', alternativeFormSection);
+                }
+
+                if (!formSection) {
+                    console.log(`❌ 找不到模块 ${moduleId} 的表单区域`);
+                    html += `<div class="config-module-section">
+                        <h5><i class="fas fa-exclamation-triangle me-2 text-danger"></i>${getModuleName(moduleId)}</h5>
+                        <div class="text-danger">找不到该模块的表单区域，可能表单生成失败</div>
+                    </div>`;
+                    continue;
+                }
+
+                const formData = collectFormData(moduleId);
+                console.log(`收集到的表单数据 (${moduleId}):`, formData);
+
+                // 检查是否有有效的配置数据
+                const hasEnabledOptions = checkValidConfiguration(formData);
+
+                if (!hasEnabledOptions) {
+                    html += `<div class="config-module-section">
+                        <h5><i class="fas fa-exclamation-triangle me-2 text-warning"></i>${getModuleName(moduleId)}</h5>
+                        <div class="text-warning">
+                            <p>该模块没有启用任何配置选项，请检查参数设置。</p>
+                            <p>建议：至少启用一个配置开关（如"是否创建VLAN"、"是否配置接口"等）。</p>
+                            <p>调试信息：收集到的数据 = ${JSON.stringify(formData)}</p>
+                        </div>
+                    </div>`;
+                    continue;
+                }
+
+                try {
+                    const config = await generateConfigFromAPI(currentVendor, moduleId, formData);
+                    html += `<div class="config-module-section">
+                        <h5><i class="fas fa-code me-2"></i>${getModuleName(moduleId)}</h5>
+                        <div class="config-commands">
+                            ${config.split('\n').map(line => `<div class="command-line">${line}</div>`).join('')}
+                        </div>
+                    </div>`;
+                    hasValidConfig = true;
+                } catch (moduleError) {
+                    console.error(`模块 ${moduleId} 配置生成失败:`, moduleError);
+                    html += `<div class="config-module-section">
+                        <h5><i class="fas fa-exclamation-triangle me-2 text-danger"></i>${getModuleName(moduleId)}</h5>
+                        <div class="text-danger">
+                            <p>配置生成失败：${moduleError.message}</p>
+                            <p>请检查参数设置，确保必要的配置项已正确填写。</p>
+                        </div>
+                    </div>`;
+                }
+            }
+
+            if (!hasValidConfig && html === '') {
+                html = `<div class="text-warning">
+                    <h5><i class="fas fa-info-circle me-2"></i>配置提示</h5>
+                    <p>没有生成任何配置，可能的原因：</p>
+                    <ul>
+                        <li>所有配置开关都处于关闭状态</li>
+                        <li>缺少必要的参数设置</li>
+                        <li>参数格式不正确</li>
+                    </ul>
+                    <p>请返回上一步检查配置参数。</p>
+                </div>`;
+            }
+
+        } catch (error) {
+            console.error('生成配置失败:', error);
+            html = `<div class="text-danger">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>配置生成失败</h5>
+                <p>错误信息：${error.message}</p>
+                <p>请检查网络连接和输入参数，然后重试。</p>
+            </div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // 辅助函数 - 匹配后端配置类型
+    function getModuleName(moduleId) {
+        const names = {
+            'vlan_complete_config': 'VLAN一体化配置',
+            'port_aggregation': '端口聚合配置',
+            'stp_config': 'STP生成树协议',
+            'interface_ip': '接口IP配置',
+            'static_route': '静态路由配置',
+            'ospf_config': 'OSPF动态路由',
+            'dhcp_service': 'DHCP服务配置',
+            'vrrp_config': 'VRRP网关冗余配置'
+        };
+        return names[moduleId] || moduleId;
+    }
+
+    function generateModuleConfig(moduleId) {
+        const configs = {
+            'vlan_complete_config': 'vlan 100\nname VLAN_100\ninterface GigabitEthernet0/0/1\nport link-type access\nport default vlan 100',
+            'port_aggregation': 'interface Eth-Trunk1\ntrunkport GigabitEthernet0/0/1 to 0/0/2\nmode lacp',
+            'stp_config': 'stp enable\nstp mode rstp\nstp priority 4096',
+            'interface_ip': 'interface Vlanif100\nip address 192.168.1.1 255.255.255.0\ndescription Management_VLAN',
+            'static_route': 'ip route-static 0.0.0.0 0.0.0.0 192.168.1.254',
+            'ospf_config': 'ospf 1\narea 0.0.0.0\nnetwork 192.168.1.0 0.0.0.255',
+            'dhcp_service': 'dhcp enable\nip pool DHCP_POOL\nnetwork 192.168.1.0 mask 255.255.255.0\ngateway-list 192.168.1.1',
+            'vrrp_config': 'interface Vlanif100\nvrrp vrid 1 virtual-ip 192.168.1.254\nvrrp vrid 1 priority 120'
+        };
+        return configs[moduleId] || `# ${moduleId} 配置`;
+    }
+
+    // 删除了刷新预览功能
+
+    // 提取可执行的配置命令
+    function extractExecutableConfig() {
+        const container = document.getElementById('finalContent');
+        const configSections = container.querySelectorAll('.config-module-section');
+
+        let executableConfig = '';
+        const timestamp = new Date().toLocaleString('zh-CN');
+
+        // 添加配置文件头部注释
+        executableConfig += `!\n`;
+        executableConfig += `! ${currentVendor.toUpperCase()} 交换机配置文件\n`;
+        executableConfig += `! 生成时间: ${timestamp}\n`;
+        executableConfig += `! 生成工具: 交换机配置生成器\n`;
+        executableConfig += `!\n`;
+        executableConfig += `! 注意：请根据实际网络环境调整参数\n`;
+        executableConfig += `!\n\n`;
+
+        configSections.forEach(section => {
+            const title = section.querySelector('h5');
+            const commandsContainer = section.querySelector('.config-commands');
+
+            if (title && commandsContainer) {
+                const moduleName = title.textContent.replace(/^\s*[\w\s]*\s+/, '').trim();
+
+                // 添加模块注释
+                executableConfig += `!\n`;
+                executableConfig += `! ========== ${moduleName} ==========\n`;
+                executableConfig += `!\n`;
+
+                // 提取命令行
+                const commandLines = commandsContainer.querySelectorAll('.command-line');
+                commandLines.forEach(line => {
+                    const command = line.textContent.trim();
+                    if (command && command !== '') {
+                        executableConfig += command + '\n';
+                    }
+                });
+
+                executableConfig += '\n';
+            }
+        });
+
+        // 添加配置文件尾部
+        executableConfig += `!\n`;
+        executableConfig += `! 配置结束\n`;
+        executableConfig += `!\n`;
+
+        return executableConfig;
+    }
+
+    // 复制配置
+    function copyConfig() {
+        const executableConfig = extractExecutableConfig();
+
+        if (!executableConfig || executableConfig.trim() === '') {
+            alert('没有可复制的配置内容');
+            return;
+        }
+
+        navigator.clipboard.writeText(executableConfig).then(() => {
+            // 显示更友好的提示
+            const commandCount = (executableConfig.match(/\n/g) || []).length;
+            alert(`配置已复制到剪贴板！\n\n包含 ${commandCount} 行配置命令\n可直接粘贴到 ${currentVendor.toUpperCase()} 设备中执行`);
+        }).catch(err => {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动选择配置内容进行复制');
+        });
+    }
+
+    // 下载配置
+    function downloadConfig() {
+        const executableConfig = extractExecutableConfig();
+
+        if (!executableConfig || executableConfig.trim() === '') {
+            alert('没有可下载的配置内容');
+            return;
+        }
+
+        // 生成文件名
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+        const filename = `${currentVendor}_config_${timestamp}.txt`;
+
+        // 创建下载
+        const blob = new Blob([executableConfig], {
+            type: 'text/plain;charset=utf-8'
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // 显示下载提示
+        const commandCount = (executableConfig.match(/\n/g) || []).length;
+        alert(`配置文件已下载！\n\n文件名: ${filename}\n包含 ${commandCount} 行配置命令\n可直接导入到 ${currentVendor.toUpperCase()} 设备中`);
+    }
+
+    // 开关控制处理函数
+    function handleToggleChange(paramName, isChecked) {
+        // 更新开关标签
+        const toggle = document.querySelector(`input[name="${paramName}"]`);
+        if (toggle) {
+            const label = toggle.closest('.d-flex').querySelector('.toggle-label');
+            if (label) {
+                label.textContent = isChecked ? '已启用' : '已禁用';
+            }
+        }
+
+        // 处理条件字段显示/隐藏
+        const conditionalFields = document.querySelectorAll(`[data-depends-on="${paramName}"]`);
+        conditionalFields.forEach(field => {
+            if (isChecked) {
+                field.classList.add('show');
+            } else {
+                field.classList.remove('show');
+                // 清空条件字段的值
+                const inputs = field.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    if (input.type === 'checkbox') {
+                        input.checked = false;
+                    } else {
+                        input.value = '';
+                    }
+                });
+            }
+        });
+    }
+
+    // 下拉选择变化处理函数
+    function handleSelectChange(paramName, selectedValue) {
+        console.log(`下拉选择变化: ${paramName} = ${selectedValue}`);
+
+        // 处理基于选择值的条件字段显示/隐藏
+        const conditionalFields = document.querySelectorAll(`[data-depends-on="${paramName}"]`);
+        conditionalFields.forEach(field => {
+            const dependsValue = field.getAttribute('data-depends-value');
+
+            if (dependsValue) {
+                // 如果字段有特定的依赖值，只有当选择值匹配时才显示
+                if (selectedValue === dependsValue) {
+                    field.classList.add('show');
+                } else {
+                    field.classList.remove('show');
+                    // 清空条件字段的值
+                    const inputs = field.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        if (input.type === 'checkbox') {
+                            input.checked = false;
+                        } else {
+                            input.value = '';
+                        }
+                    });
+                }
+            } else {
+                // 如果字段没有特定的依赖值，只要有选择就显示
+                if (selectedValue && selectedValue.trim() !== '') {
+                    field.classList.add('show');
+                } else {
+                    field.classList.remove('show');
+                    // 清空条件字段的值
+                    const inputs = field.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        if (input.type === 'checkbox') {
+                            input.checked = false;
+                        } else {
+                            input.value = '';
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // 生成完整的接口名称 - 为每个接口号码都添加前缀
+    function generateFullInterfaceNames(prefix, numbers) {
+        console.log(`生成完整接口名称: 前缀=${prefix}, 号码=${numbers}`);
+
+        if (!numbers || !numbers.trim()) {
+            return '';
+        }
+
+        // 按逗号分割接口号码
+        const numberParts = numbers.split(',').map(part => part.trim()).filter(part => part);
+        console.log('分割后的号码部分:', numberParts);
+
+        // 为每个号码部分添加前缀
+        const fullInterfaces = numberParts.map(numberPart => {
+            const fullInterface = `${prefix}${numberPart}`;
+            console.log(`  ${numberPart} -> ${fullInterface}`);
+            return fullInterface;
+        });
+
+        const result = fullInterfaces.join(',');
+        console.log('最终接口名称:', result);
+        return result;
+    }
+
+    // 更新端口组合（删除了预览功能）
+    function updatePortCombination(paramName) {
+        const portGroup = document.querySelector(`[data-param="${paramName}"]`);
+        if (!portGroup) return;
+
+        const prefixSelect = portGroup.querySelector('.port-prefix-select');
+        const numberInput = portGroup.querySelector('.port-number-input');
+        const hiddenInput = portGroup.querySelector(`input[name="${paramName}"]`);
+
+        const prefix = prefixSelect.value;
+        const numbers = numberInput.value.trim();
+
+        if (prefix && numbers) {
+            // 生成完整的接口名称 - 为每个接口号码都添加前缀
+            const fullInterface = generateFullInterfaceNames(prefix, numbers);
+            hiddenInput.value = fullInterface;
+            console.log(`接口组合更新: ${paramName} = ${fullInterface}`);
+        } else {
+            hiddenInput.value = '';
+            console.log(`接口组合清空: ${paramName}`);
+        }
+    }
+
+    // 删除了端口格式验证函数
+
+    // 收集表单数据 - 增强版，支持端口组合和开关状态
+    function collectFormData(moduleId) {
+        console.log(`开始收集表单数据，模块ID: ${moduleId}`);
+
+        // 修复：只选择配置表单区域，不选择模块选择卡片
+        const formSection = document.querySelector(`.config-section[data-module="${moduleId}"]`);
+        console.log('找到的表单区域:', formSection);
+
+        // 如果没找到配置表单，尝试在configForms容器中查找
+        if (!formSection) {
+            const configFormsContainer = document.getElementById('configForms');
+            const alternativeFormSection = configFormsContainer ?
+                configFormsContainer.querySelector(`[data-module="${moduleId}"]`) : null;
+            console.log('备用查找结果:', alternativeFormSection);
+
+            if (alternativeFormSection) {
+                return collectFormDataFromElement(moduleId, alternativeFormSection);
+            }
+        }
+
+        return collectFormDataFromElement(moduleId, formSection);
+    }
+
+    // 从指定元素收集表单数据
+    function collectFormDataFromElement(moduleId, formSection) {
+        if (!formSection) {
+            console.log('❌ 没有找到表单区域');
+            return {};
+        }
+
+        const formData = {};
+        const inputs = formSection.querySelectorAll('input, select, textarea');
+        console.log(`找到 ${inputs.length} 个输入控件`);
+
+        inputs.forEach((input, index) => {
+            console.log(`处理第 ${index + 1} 个控件:`, {
+                type: input.type,
+                name: input.name,
+                value: input.value,
+                checked: input.checked,
+                classList: Array.from(input.classList)
+            });
+
+            // 跳过没有name属性的控件
+            if (!input.name) {
+                console.log('  跳过：没有name属性');
+                return;
+            }
+
+            // 跳过隐藏的端口输入字段的组件
+            if (input.classList.contains('port-prefix-select') ||
+                input.classList.contains('port-number-input')) {
+                console.log('  跳过：端口输入组件');
+                return;
+            }
+
+            if (input.type === 'checkbox') {
+                formData[input.name] = input.checked;
+                console.log(`  ✅ 收集复选框: ${input.name} = ${input.checked}`);
+            } else if (input.type === 'hidden' && input.name) {
+                // 处理端口组合字段
+                if (input.value && input.value.trim() !== '') {
+                    formData[input.name] = input.value.trim();
+                    console.log(`  ✅ 收集隐藏字段: ${input.name} = ${input.value.trim()}`);
+                } else {
+                    console.log(`  跳过隐藏字段（值为空）: ${input.name}`);
+                }
+            } else if (input.value && input.value.trim() !== '') {
+                // 检查是否是数组字段格式 (如: interface_entries[0].interface_type)
+                const arrayMatch = input.name.match(/^(\w+)\[(\d+)\]\.(\w+)$/);
+                if (arrayMatch) {
+                    const [, arrayName, index, fieldName] = arrayMatch;
+                    const arrayIndex = parseInt(index);
+
+                    // 初始化数组
+                    if (!formData[arrayName]) {
+                        formData[arrayName] = [];
+                    }
+
+                    // 初始化数组项
+                    if (!formData[arrayName][arrayIndex]) {
+                        formData[arrayName][arrayIndex] = {};
+                    }
+
+                    formData[arrayName][arrayIndex][fieldName] = input.value.trim();
+                    console.log(`  ✅ 收集数组字段: ${arrayName}[${arrayIndex}].${fieldName} = ${input.value.trim()}`);
+                } else {
+                    formData[input.name] = input.value.trim();
+                    console.log(`  ✅ 收集普通字段: ${input.name} = ${input.value.trim()}`);
+                }
+            } else {
+                console.log(`  跳过（值为空）: ${input.name} = "${input.value}"`);
+            }
+        });
+
+        // 处理数组字段中的复选框
+        inputs.forEach((input) => {
+            if (input.type === 'checkbox' && input.name) {
+                const arrayMatch = input.name.match(/^(\w+)\[(\d+)\]\.(\w+)$/);
+                if (arrayMatch) {
+                    const [, arrayName, index, fieldName] = arrayMatch;
+                    const arrayIndex = parseInt(index);
+
+                    // 初始化数组
+                    if (!formData[arrayName]) {
+                        formData[arrayName] = [];
+                    }
+
+                    // 初始化数组项
+                    if (!formData[arrayName][arrayIndex]) {
+                        formData[arrayName][arrayIndex] = {};
+                    }
+
+                    formData[arrayName][arrayIndex][fieldName] = input.checked;
+                    console.log(`  ✅ 收集数组复选框: ${arrayName}[${arrayIndex}].${fieldName} = ${input.checked}`);
+                }
+            }
+        });
+
+        console.log('最终收集到的表单数据:', formData);
+        return formData;
+    }
+
+    // 生成数组类型表单字段（动态表单）
+    function generateArrayFormField(paramName, param) {
+        const fieldId = `field_${paramName}`;
+        let html = `<div class="mb-3 array-field" data-param="${paramName}">
+            <label class="form-label">${param.description || paramName}</label>
+            <div class="array-container border rounded p-3" id="${fieldId}_container">
+                <div class="text-muted text-center py-3" id="${fieldId}_empty">
+                    <i class="fas fa-plus-circle me-2"></i>点击下方按钮添加配置条目
+                </div>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addArrayItem('${paramName}')">
+                <i class="fas fa-plus me-1"></i>添加条目
+            </button>
+        </div>`;
+
+        // 存储数组字段的模式信息
+        if (!window.arrayFieldSchemas) {
+            window.arrayFieldSchemas = {};
+        }
+        window.arrayFieldSchemas[paramName] = param.item_schema;
+
+        return html;
+    }
+
+    // 添加数组条目
+    function addArrayItem(paramName) {
+        const container = document.getElementById(`field_${paramName}_container`);
+        const emptyMessage = document.getElementById(`field_${paramName}_empty`);
+        const schema = window.arrayFieldSchemas[paramName];
+        const itemIndex = container.querySelectorAll('.array-item').length;
+        const itemId = `${paramName}_item_${itemIndex}`;
+
+        // 隐藏空状态提示
+        if (emptyMessage) {
+            emptyMessage.style.display = 'none';
+        }
+
+        let itemHtml = `<div class="array-item border rounded p-3 mb-2 bg-light" id="${itemId}">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0 text-primary">
+                    <i class="fas fa-cog me-2"></i>条目 ${itemIndex + 1}
+                </h6>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeArrayItem('${itemId}', '${paramName}')">
+                    <i class="fas fa-trash me-1"></i>删除
+                </button>
+            </div>
+            <div class="row">`;
+
+        // 生成每个字段
+        Object.entries(schema).forEach(([fieldName, fieldConfig]) => {
+            const fullFieldName = `${paramName}[${itemIndex}].${fieldName}`;
+            const fieldId = `field_${fullFieldName}`;
+
+            itemHtml += `<div class="col-md-6 mb-3">
+                <label for="${fieldId}" class="form-label">${fieldConfig.description || fieldName}
+                    ${fieldConfig.required ? '<span class="text-danger">*</span>' : ''}
+                </label>`;
+
+            if (fieldConfig.type === 'boolean') {
+                const checked = fieldConfig.default ? 'checked' : '';
+                itemHtml += `<div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="${fieldId}" name="${fullFieldName}" ${checked}>
+                    <label class="form-check-label" for="${fieldId}">
+                        ${fieldConfig.default ? '启用' : '禁用'}
+                    </label>
+                </div>`;
+            } else if (fieldConfig.options && fieldConfig.options.length > 0) {
+                itemHtml += `<select class="form-control" id="${fieldId}" name="${fullFieldName}">
+                    <option value="">请选择...</option>`;
+                fieldConfig.options.forEach(option => {
+                    const selected = fieldConfig.default === option ? 'selected' : '';
+                    itemHtml += `<option value="${option}" ${selected}>${option}</option>`;
+                });
+                itemHtml += `</select>`;
+            } else {
+                const inputType = fieldConfig.type === 'integer' ? 'number' : 'text';
+                const placeholder = fieldConfig.placeholder || '';
+                const defaultValue = fieldConfig.default || '';
+                const pattern = fieldConfig.pattern ? `pattern="${fieldConfig.pattern}"` : '';
+                const min = fieldConfig.range ? `min="${fieldConfig.range[0]}"` : '';
+                const max = fieldConfig.range ? `max="${fieldConfig.range[1]}"` : '';
+                const maxLength = fieldConfig.max_length ? `maxlength="${fieldConfig.max_length}"` : '';
+                const required = fieldConfig.required ? 'required' : '';
+
+                itemHtml += `<input type="${inputType}" class="form-control" id="${fieldId}" name="${fullFieldName}"
+                             placeholder="${placeholder}" value="${defaultValue}" ${pattern} ${min} ${max} ${maxLength} ${required}>`;
+            }
+
+            itemHtml += `</div>`;
+        });
+
+        itemHtml += `</div></div>`;
+
+        container.insertAdjacentHTML('beforeend', itemHtml);
+    }
+
+    // 删除数组条目
+    function removeArrayItem(itemId, paramName) {
+        const item = document.getElementById(itemId);
+        const container = document.getElementById(`field_${paramName}_container`);
+        const emptyMessage = document.getElementById(`field_${paramName}_empty`);
+
+        if (item) {
+            item.remove();
+
+            // 重新编号剩余条目
+            const remainingItems = container.querySelectorAll('.array-item');
+            remainingItems.forEach((child, index) => {
+                const title = child.querySelector('h6');
+                if (title) {
+                    title.innerHTML = `<i class="fas fa-cog me-2"></i>条目 ${index + 1}`;
+                }
+            });
+
+            // 如果没有条目了，显示空状态提示
+            if (remainingItems.length === 0 && emptyMessage) {
+                emptyMessage.style.display = 'block';
+            }
+        }
+    }
+
+    // 暴露全局函数
+    window.nextStep = nextStep;
+    window.previousStep = previousStep;
+    window.copyConfig = copyConfig;
+    window.downloadConfig = downloadConfig;
+    window.handleToggleChange = handleToggleChange;
+    window.handleSelectChange = handleSelectChange;
+    window.updatePortCombination = updatePortCombination;
+    window.handlePortModeChange = handlePortModeChange;
+    window.updateFieldLabels = updateFieldLabels;
+    window.addArrayItem = addArrayItem;
+    window.removeArrayItem = removeArrayItem;
+});
+</script>
+{% endblock %}
