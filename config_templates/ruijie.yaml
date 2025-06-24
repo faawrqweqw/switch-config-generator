@@ -7,7 +7,7 @@ vlan_complete_config:
     create_vlan:
       type: "boolean"
       required: false
-      default: true
+      default: false
       description: "是否创建VLAN"
       order: 1
 
@@ -28,7 +28,7 @@ vlan_complete_config:
     configure_interface:
       type: "boolean"
       required: false
-      default: true
+      default: false
       description: "是否配置接口VLAN"
       order: 4
 
@@ -56,24 +56,7 @@ vlan_complete_config:
       description: "允许通过的VLAN列表(仅trunk模式，支持范围如：10,20,30-40)"
       order: 8
 
-    # 可选的VLAN接口IP配置
-    configure_vlan_ip:
-      type: "boolean"
-      required: false
-      default: false
-      description: "是否配置VLAN接口IP地址"
-      order: 9
-    vlan_ip_address:
-      type: "string"
-      required: false
-      description: "VLAN接口IP地址（支持CIDR格式，如：192.168.1.1/24）"
-      order: 10
-    vlan_ip_description:
-      type: "string"
-      required: false
-      max_length: 80
-      description: "VLAN接口描述"
-      order: 11
+    # 删除了VLAN接口IP配置参数
   commands: |
     {% if create_vlan and vlan_id %}
     # 第一步：创建VLAN
@@ -116,16 +99,7 @@ vlan_complete_config:
     {% endfor %}
     {% endif %}
 
-    {% if configure_vlan_ip and vlan_ip_address %}
-    # 第三步：可选的VLAN接口IP配置
-    interface vlan{{ vlan_id if not is_batch else vlan_list[0] }}
-    ip address {{ vlan_ip_address }} {{ vlan_subnet_mask }}
-    {% if vlan_ip_description %}
-    description {{ vlan_ip_description }}
-    {% endif %}
-    no shutdown
-    exit
-    {% endif %}
+    # 删除了VLAN接口IP配置命令
   example:
     create_vlan: true
     vlan_id: "100"
@@ -134,9 +108,7 @@ vlan_complete_config:
     interface: "GigabitEthernet0/1-4"
     port_mode: "access"
     pvid: 100
-    configure_vlan_ip: true
-    vlan_ip_address: "192.168.100.1/24"
-    vlan_ip_description: "Office network gateway"
+    # 删除了VLAN接口IP配置示例
 
 port_aggregation:
   description: "端口聚合配置"
@@ -169,6 +141,7 @@ port_aggregation:
     configure_load_balance:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置负载均衡算法"
       order: 5
     load_balance_mode:
@@ -180,6 +153,7 @@ port_aggregation:
     enhanced_load_balance:
       type: "boolean"
       required: false
+      default: false
       description: "是否启用增强型负载均衡"
       order: 7
 
@@ -187,6 +161,7 @@ port_aggregation:
     configure_lacp_priority:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置LACP优先级"
       order: 8
     lacp_system_priority:
@@ -208,6 +183,7 @@ port_aggregation:
     configure_lacp_timeout:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置LACP超时模式"
       order: 11
     lacp_rate:
@@ -221,6 +197,7 @@ port_aggregation:
     configure_advanced:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置高级选项"
       order: 13
     min_active_links:
@@ -326,6 +303,7 @@ ospf_config:
     configure_area_auth:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置区域认证"
       order: 4
     area_auth_type:
@@ -351,6 +329,7 @@ ospf_config:
     configure_interface_auth:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置接口认证"
       order: 8
     interface_auth_interface:
@@ -375,6 +354,7 @@ ospf_config:
     configure_advanced:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置高级选项"
       order: 12
     stub_area:
@@ -400,6 +380,7 @@ ospf_config:
     configure_interface:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置接口参数"
       order: 16
     interface_name:
@@ -411,6 +392,7 @@ ospf_config:
     configure_interface_routing:
       type: "boolean"
       required: false
+      default: false
       description: "是否将物理接口配置为路由模式"
       order: 18
     interface_cost:
@@ -430,6 +412,7 @@ ospf_config:
     configure_timers:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置OSPF定时器"
       order: 21
     hello_interval:
@@ -449,31 +432,37 @@ ospf_config:
     configure_redistribute:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置路由引入"
       order: 24
     redistribute_static:
       type: "boolean"
       required: false
+      default: false
       description: "引入静态路由"
       order: 25
     redistribute_connected:
       type: "boolean"
       required: false
+      default: false
       description: "引入直连路由"
       order: 26
     redistribute_rip:
       type: "boolean"
       required: false
+      default: false
       description: "引入RIP路由"
       order: 27
     redistribute_bgp:
       type: "boolean"
       required: false
+      default: false
       description: "引入BGP路由"
       order: 28
     redistribute_isis:
       type: "boolean"
       required: false
+      default: false
       description: "引入ISIS路由"
       order: 29
     redistribute_cost:
@@ -492,6 +481,7 @@ ospf_config:
     redistribute_subnets:
       type: "boolean"
       required: false
+      default: false
       description: "引入子网路由（锐捷特有）"
       order: 32
 
@@ -643,15 +633,17 @@ dhcp_service:
       description: "是否配置DHCP服务器"
       order: 1
 
+    # 锐捷DHCP地址池配置
     pool_name:
       type: "string"
-      required: true
+      required: false
       max_length: 32
+      default: "dhcp_pool"
       description: "DHCP池名称"
       order: 2
     network:
       type: "string"
-      required: true
+      required: false
       description: "网络地址（支持CIDR格式，如：192.168.1.0/24）"
       order: 3
     mask:
@@ -667,17 +659,18 @@ dhcp_service:
     dns_servers:
       type: "string"
       required: false
-      description: "DNS服务器列表（逗号分隔）"
+      description: "DNS服务器（多个用空格分隔，如：8.8.8.8 114.114.114.114）"
       order: 6
     excluded_addresses:
       type: "string"
       required: false
-      description: "排除地址（支持范围，如：192.168.1.1-192.168.1.10,192.168.1.100）"
+      description: "排除地址范围（如：192.168.1.1 192.168.1.10）"
       order: 7
     lease_time:
       type: "string"
       required: false
-      description: "租约时间（格式：天 小时 分钟，如：1 0 0）"
+      default: "1"
+      description: "租约时间（天 小时 分钟，如：1 0 0，infinite表示永久）"
       order: 8
 
     # 新增接口配置参数
@@ -712,6 +705,8 @@ dhcp_service:
       order: 13
   commands: |
     {% if enable_dhcp_server %}
+    configure terminal
+
     # 启用DHCP服务
     service dhcp
 
@@ -733,7 +728,7 @@ dhcp_service:
      default-router {{ gateway }}
     {% endif %}
     {% if dns_servers %}
-     dns-server {{ dns_servers.replace(',', ' ').replace('  ', ' ').strip() }}
+     dns-server {{ dns_servers }}
     {% endif %}
     {% if lease_time %}
      lease {{ lease_time }}
@@ -746,15 +741,19 @@ dhcp_service:
     ip helper-address 127.0.0.1
     exit
     {% endif %}
+
+    end
     {% endif %}
 
     # DHCP中继配置
     {% if enable_dhcp_relay and relay_server_address and relay_interface %}
+    configure terminal
     interface {{ relay_interface }}
     {% for server in relay_server_list %}
     ip helper-address {{ server }}
     {% endfor %}
     exit
+    end
     {% endif %}
   example:
     pool_name: "vlan100-pool"
@@ -844,6 +843,7 @@ stp_config:
     global_enable:
       type: "boolean"
       required: false
+      default: false
       description: "全局使能生成树协议"
       order: 2
     root_bridge_config:
@@ -855,6 +855,7 @@ stp_config:
     bpdu_protection:
       type: "boolean"
       required: false
+      default: false
       description: "全局使能BPDU保护"
       order: 4
     bridge_priority:
@@ -896,6 +897,7 @@ stp_config:
     configure_timing_params:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置影响RSTP/MSTP拓扑收敛的参数"
       order: 10
     hello_time:
@@ -924,6 +926,7 @@ stp_config:
     configure_port_blocking:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置端口阻塞"
       order: 14
     interface:
@@ -943,6 +946,7 @@ stp_config:
     edge_port:
       type: "boolean"
       required: false
+      default: false
       description: "边缘端口功能"
       order: 17
     edge_port_interface:
@@ -953,6 +957,7 @@ stp_config:
     root_protection:
       type: "boolean"
       required: false
+      default: false
       description: "根保护功能"
       order: 19
     root_protection_interface:
@@ -963,6 +968,7 @@ stp_config:
     loop_protection:
       type: "boolean"
       required: false
+      default: false
       description: "环路保护功能"
       order: 21
     loop_protection_interface:
@@ -1114,3 +1120,183 @@ stp_config:
     edge_port_interface: "GigabitEthernet0/5-8"
     root_protection: true
     root_protection_interface: "GigabitEthernet0/9-12"
+
+vrrp_config:
+  description: "VRRP网关冗余配置（锐捷VRRP协议）"
+  parameters:
+    # 基础VRRP配置
+    vlan_id:
+      type: "integer"
+      required: true
+      range: [1, 4094]
+      description: "VLAN ID"
+      placeholder: "100"
+      order: 1
+
+    interface_ip:
+      type: "string"
+      required: true
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+      description: "接口IP地址"
+      placeholder: "192.168.100.1/24"
+      order: 2
+
+    vrrp_group_id:
+      type: "integer"
+      required: true
+      range: [1, 255]
+      description: "VRRP组ID"
+      placeholder: "1"
+      order: 3
+
+    virtual_ip:
+      type: "string"
+      required: true
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "虚拟网关IP地址"
+      placeholder: "192.168.100.254"
+      order: 4
+
+    priority:
+      type: "integer"
+      required: false
+      range: [1, 254]
+      description: "VRRP优先级（数值越大优先级越高）"
+      placeholder: "100"
+      default: 100
+      order: 5
+
+    # 高级配置选项
+    configure_advanced:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置高级选项"
+      order: 6
+
+    preempt_mode:
+      type: "boolean"
+      required: false
+      default: false
+      description: "启用抢占模式"
+      order: 7
+
+    preempt_delay:
+      type: "integer"
+      required: false
+      range: [0, 255]
+      description: "抢占延迟时间（秒）"
+      placeholder: "0"
+      default: 0
+      order: 8
+
+    advertisement_interval:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "通告间隔（秒）"
+      placeholder: "1"
+      default: 1
+      order: 9
+
+    # 认证配置
+    configure_authentication:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置认证"
+      order: 10
+
+    auth_key:
+      type: "string"
+      required: false
+      description: "认证密钥"
+      placeholder: "vrrpkey123"
+      order: 11
+
+    # 接口跟踪配置
+    configure_track:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置接口跟踪"
+      order: 12
+
+    track_interface:
+      type: "string"
+      required: false
+      description: "跟踪接口"
+      placeholder: "GigabitEthernet0/1"
+      order: 13
+
+    track_priority_reduce:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "跟踪接口Down时优先级减少值"
+      placeholder: "10"
+      default: 10
+      order: 14
+
+  commands: |
+    configure terminal
+
+    # 创建VLAN
+    vlan {{ vlan_id }}
+    exit
+
+    # 配置VLAN接口
+    interface vlan {{ vlan_id }}
+    ip address {{ interface_ip | ip_from_cidr }} {{ interface_ip | netmask_from_cidr }}
+
+    # 基础VRRP配置
+    vrrp {{ vrrp_group_id }} ip {{ virtual_ip }}
+    {% if priority != 100 %}
+    vrrp {{ vrrp_group_id }} priority {{ priority }}
+    {% endif %}
+
+    {% if configure_advanced %}
+    # 高级配置
+    {% if preempt_mode %}
+    vrrp {{ vrrp_group_id }} preempt delay {{ preempt_delay }}
+    {% else %}
+    no vrrp {{ vrrp_group_id }} preempt
+    {% endif %}
+    {% if advertisement_interval != 1 %}
+    vrrp {{ vrrp_group_id }} timers advertise {{ advertisement_interval }}
+    {% endif %}
+    {% endif %}
+
+    {% if configure_authentication and auth_key %}
+    # 认证配置
+    vrrp {{ vrrp_group_id }} authentication {{ auth_key }}
+    {% endif %}
+
+    {% if configure_track and track_interface %}
+    # 接口跟踪配置
+    vrrp {{ vrrp_group_id }} track interface {{ track_interface }} decrement {{ track_priority_reduce }}
+    {% endif %}
+
+    no shutdown
+    exit
+
+    # 保存配置
+    write
+
+    end
+
+  example:
+    vlan_id: 100
+    interface_ip: "192.168.100.1/24"
+    vrrp_group_id: 1
+    virtual_ip: "192.168.100.254"
+    priority: 110
+    configure_advanced: true
+    preempt_mode: true
+    preempt_delay: 5
+    advertisement_interval: 1
+    configure_authentication: true
+    auth_key: "vrrpkey123"
+    configure_track: true
+    track_interface: "GigabitEthernet0/1"
+    track_priority_reduce: 10

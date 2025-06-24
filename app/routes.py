@@ -350,6 +350,17 @@ def index():
     vendors = generator.get_supported_vendors()
     return render_template('index.html', vendors=vendors)
 
+@main.route('/simplified')
+def simplified():
+    """简化版页面"""
+    return render_template('index_simplified.html')
+
+@main.route('/test')
+def test_page():
+    """API测试页面"""
+    with open('debug_form_data.html', 'r', encoding='utf-8') as f:
+        return f.read()
+
 @main.route('/api/config_types/<vendor>')
 def get_config_types(vendor):
     """获取指定厂商支持的配置类型"""
@@ -365,7 +376,8 @@ def get_config_types(vendor):
             'static_route': '静态路由',
             'interface_ip': '接口IP配置',
             'stp_config': 'STP配置',
-            'ospf_config': 'OSPF配置'
+            'ospf_config': 'OSPF配置',
+            'vrrp_config': 'VRRP网关冗余配置'
         }
 
         result = []

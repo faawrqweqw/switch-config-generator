@@ -14,6 +14,26 @@ def cidr_to_netmask_filter(cidr_prefix):
     except (ValueError, ipaddress.AddressValueError):
         return "255.255.255.0"  # 默认值
 
+def ip_from_cidr_filter(cidr_ip):
+    """从CIDR格式的IP地址中提取IP部分"""
+    try:
+        if '/' in cidr_ip:
+            return cidr_ip.split('/')[0]
+        return cidr_ip
+    except:
+        return cidr_ip
+
+def netmask_from_cidr_filter(cidr_ip):
+    """从CIDR格式的IP地址中提取子网掩码"""
+    try:
+        if '/' in cidr_ip:
+            prefix_len = int(cidr_ip.split('/')[1])
+            network = ipaddress.IPv4Network(f"0.0.0.0/{prefix_len}")
+            return str(network.netmask)
+        return "255.255.255.0"  # 默认值
+    except:
+        return "255.255.255.0"
+
 class TemplateEngine:
     """配置模板引擎"""
 
@@ -25,6 +45,8 @@ class TemplateEngine:
         # 创建Jinja2环境并注册自定义过滤器
         self.jinja_env = Environment()
         self.jinja_env.filters['cidr_to_netmask'] = cidr_to_netmask_filter
+        self.jinja_env.filters['ip_from_cidr'] = ip_from_cidr_filter
+        self.jinja_env.filters['netmask_from_cidr'] = netmask_from_cidr_filter
 
         self.load_templates()
 

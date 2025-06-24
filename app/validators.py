@@ -59,7 +59,7 @@ class ConfigValidator:
 
         for part in parts:
             if '-' in part:
-                # 处理范围，如 GigabitEthernet0/0/1-4
+                # 首先检查是否是范围格式，如 GigabitEthernet0/0/1-4
                 match = re.match(r'^(.+?)(\d+)-(\d+)$', part)
                 if match:
                     prefix, start, end = match.groups()
@@ -70,7 +70,9 @@ class ConfigValidator:
                     if int(start) >= int(end):
                         return False, f"接口范围起始值必须小于结束值: {part}"
                 else:
-                    return False, f"接口范围格式不正确: {part}"
+                    # 不是范围格式，可能是包含连字符的接口名称（如 Vlan-interface100）
+                    if not ConfigValidator._validate_interface_prefix(part):
+                        return False, f"接口名称格式不正确: {part}"
             else:
                 # 验证单个接口
                 if not ConfigValidator._validate_interface_prefix(part):
@@ -91,6 +93,8 @@ class ConfigValidator:
             r'^10GE\d+/\d+/\d+$',                 # 10G以太网简写
             r'^GE\d+/\d+/\d+$',                   # 千兆以太网简写
             r'^FE\d+/\d+/\d+$',                   # 快速以太网简写
+            r'^Vlanif\d+$',                       # 华为VLAN接口
+            r'^vlanif\d+$',                       # 华为VLAN接口(小写)
 
             # H3C/锐捷格式
             r'^GigabitEthernet\d+/\d+$',          # 千兆以太网
@@ -101,6 +105,8 @@ class ConfigValidator:
             r'^10GE\d+/\d+$',                     # 10G以太网简写
             r'^GE\d+/\d+$',                       # 千兆以太网简写
             r'^FE\d+/\d+$',                       # 快速以太网简写
+            r'^Vlan-interface\d+$',               # H3C VLAN接口
+            r'^vlan-interface\d+$',               # H3C VLAN接口(小写)
 
             # 通用格式
             r'^Ethernet\d+/\d+$',                 # 通用以太网
@@ -111,6 +117,7 @@ class ConfigValidator:
             r'^TenGigabitEthernet\d+/\d+/\d+$',   # 思科万兆
             r'^FortyGigabitEthernet\d+/\d+/\d+$', # 思科40G
             r'^HundredGigE\d+/\d+/\d+$',          # 思科100G
+            r'^Vlan\d+$',                         # 思科VLAN接口
         ]
 
         for pattern in patterns:
@@ -439,8 +446,208 @@ def validate_form_data(config_type: str, form_data: Dict[str, Any]) -> Tuple[boo
         if 'instance_vlan_mapping' in form_data and form_data['instance_vlan_mapping']:
             mapping = form_data['instance_vlan_mapping']
             # 验证格式如：1:10,20;2:30,40
-            import re
             if not re.match(r'^\d+:\d+(,\d+)*(;\d+:\d+(,\d+)*)*$', mapping):
                 errors.append("实例VLAN映射格式不正确，应类似：1:10,20;2:30,40")
+
+    elif config_type == 'vlan_complete_config':
+        # 验证VLAN一体化配置参数
+        if 'vlan_id' in form_data and form_data['vlan_id']:
+            valid, msg = ConfigValidator.validate_vlan_id(str(form_data['vlan_id']))
+            if not valid:
+                errors.append(f"VLAN ID错误: {msg}")
+
+        if 'vlan_name' in form_data and form_data['vlan_name']:
+            valid, msg = ConfigValidator.validate_vlan_name(form_data['vlan_name'])
+            if not valid:
+                errors.append(f"VLAN名称错误: {msg}")
+
+        # 验证接口配置
+        if 'interface' in form_data and form_data['interface']:
+            valid, msg = ConfigValidator.validate_interface(form_data['interface'])
+            if not valid:
+                errors.append(f"接口名称错误: {msg}")
+
+        # 验证VLAN接口名称
+        if 'vlan_interface_name' in form_data and form_data['vlan_interface_name']:
+            valid, msg = ConfigValidator.validate_interface(form_data['vlan_interface_name'])
+            if not valid:
+                errors.append(f"VLAN接口名称错误: {msg}")
+
+        # 验证VLAN接口IP地址
+        if 'vlan_ip_address' in form_data and form_data['vlan_ip_address']:
+            valid, msg = ConfigValidator.validate_ip_address(form_data['vlan_ip_address'])
+            if not valid:
+                errors.append(f"VLAN接口IP地址错误: {msg}")
+
+    elif config_type == 'vrrp_config':
+        # 验证VRRP配置参数
+        # 必需参数验证
+        required_params = ['vlan_id', 'interface_ip', 'vrrp_group_id', 'virtual_ip']
+        for param in required_params:
+            if param not in form_data or not form_data[param]:
+                errors.append(f"VRRP配置缺少必需参数: {param}")
+
+        # VLAN ID验证
+        if 'vlan_id' in form_data and form_data['vlan_id']:
+            try:
+                vlan_id = int(form_data['vlan_id'])
+                if not (1 <= vlan_id <= 4094):
+                    errors.append("VLAN ID必须在1-4094范围内")
+            except ValueError:
+                errors.append("VLAN ID必须是数字")
+
+        # 接口IP地址验证
+        if 'interface_ip' in form_data and form_data['interface_ip']:
+            valid, msg = ConfigValidator.validate_ip_address(form_data['interface_ip'])
+            if not valid:
+                errors.append(f"接口IP地址错误: {msg}")
+
+        # VRRP组ID验证
+        if 'vrrp_group_id' in form_data and form_data['vrrp_group_id']:
+            try:
+                group_id = int(form_data['vrrp_group_id'])
+                if not (1 <= group_id <= 255):
+                    errors.append("VRRP组ID必须在1-255范围内")
+            except ValueError:
+                errors.append("VRRP组ID必须是数字")
+
+        # 虚拟IP地址验证
+        if 'virtual_ip' in form_data and form_data['virtual_ip']:
+            valid, msg = ConfigValidator.validate_ip_address(form_data['virtual_ip'])
+            if not valid:
+                errors.append(f"虚拟IP地址错误: {msg}")
+
+        # 优先级验证
+        if 'priority' in form_data and form_data['priority']:
+            try:
+                priority = int(form_data['priority'])
+                if not (1 <= priority <= 254):
+                    errors.append("VRRP优先级必须在1-254范围内")
+            except ValueError:
+                errors.append("VRRP优先级必须是数字")
+
+        # 抢占延迟验证
+        if 'preempt_delay' in form_data and form_data['preempt_delay']:
+            try:
+                delay = int(form_data['preempt_delay'])
+                if not (0 <= delay <= 3600):
+                    errors.append("抢占延迟时间必须在0-3600秒范围内")
+            except ValueError:
+                errors.append("抢占延迟时间必须是数字")
+
+        # 通告间隔验证
+        if 'advertisement_interval' in form_data and form_data['advertisement_interval']:
+            try:
+                interval = int(form_data['advertisement_interval'])
+                if not (1 <= interval <= 255):
+                    errors.append("通告间隔必须在1-255秒范围内")
+            except ValueError:
+                errors.append("通告间隔必须是数字")
+
+        # BFD快速切换参数验证
+        if form_data.get('configure_bfd') == 'true':
+            if 'bfd_peer_ip' in form_data and form_data['bfd_peer_ip']:
+                valid, msg = ConfigValidator.validate_ip_address(form_data['bfd_peer_ip'])
+                if not valid:
+                    errors.append(f"BFD对端IP地址错误: {msg}")
+
+            if 'bfd_session_name' in form_data and form_data['bfd_session_name']:
+                session_name = form_data['bfd_session_name']
+                if len(session_name) > 32:
+                    errors.append("BFD会话名称长度不能超过32个字符")
+                if not re.match(r'^[a-zA-Z0-9_-]+$', session_name):
+                    errors.append("BFD会话名称只能包含字母、数字、下划线和连字符")
+
+            if 'bfd_local_discriminator' in form_data and form_data['bfd_local_discriminator']:
+                try:
+                    local_disc = int(form_data['bfd_local_discriminator'])
+                    if not (1 <= local_disc <= 16384):
+                        errors.append("BFD本地标识符必须在1-16384范围内")
+                except ValueError:
+                    errors.append("BFD本地标识符必须是数字")
+
+            if 'bfd_remote_discriminator' in form_data and form_data['bfd_remote_discriminator']:
+                try:
+                    remote_disc = int(form_data['bfd_remote_discriminator'])
+                    if not (1 <= remote_disc <= 16384):
+                        errors.append("BFD远端标识符必须在1-16384范围内")
+                except ValueError:
+                    errors.append("BFD远端标识符必须是数字")
+
+            if 'bfd_priority_reduce' in form_data and form_data['bfd_priority_reduce']:
+                try:
+                    reduce_val = int(form_data['bfd_priority_reduce'])
+                    if not (1 <= reduce_val <= 255):
+                        errors.append("BFD优先级减少值必须在1-255范围内")
+                except ValueError:
+                    errors.append("BFD优先级减少值必须是数字")
+
+        # BFD上行链路监控参数验证
+        if form_data.get('configure_bfd_uplink') == 'true':
+            if 'bfd_uplink_peer_ip' in form_data and form_data['bfd_uplink_peer_ip']:
+                valid, msg = ConfigValidator.validate_ip_address(form_data['bfd_uplink_peer_ip'])
+                if not valid:
+                    errors.append(f"BFD上行链路对端IP地址错误: {msg}")
+
+            if 'bfd_uplink_session_name' in form_data and form_data['bfd_uplink_session_name']:
+                session_name = form_data['bfd_uplink_session_name']
+                if len(session_name) > 32:
+                    errors.append("BFD上行链路会话名称长度不能超过32个字符")
+                if not re.match(r'^[a-zA-Z0-9_-]+$', session_name):
+                    errors.append("BFD上行链路会话名称只能包含字母、数字、下划线和连字符")
+
+            if 'bfd_uplink_local_discriminator' in form_data and form_data['bfd_uplink_local_discriminator']:
+                try:
+                    local_disc = int(form_data['bfd_uplink_local_discriminator'])
+                    if not (1 <= local_disc <= 16384):
+                        errors.append("BFD上行链路本地标识符必须在1-16384范围内")
+                except ValueError:
+                    errors.append("BFD上行链路本地标识符必须是数字")
+
+            if 'bfd_uplink_remote_discriminator' in form_data and form_data['bfd_uplink_remote_discriminator']:
+                try:
+                    remote_disc = int(form_data['bfd_uplink_remote_discriminator'])
+                    if not (1 <= remote_disc <= 16384):
+                        errors.append("BFD上行链路远端标识符必须在1-16384范围内")
+                except ValueError:
+                    errors.append("BFD上行链路远端标识符必须是数字")
+
+            if 'bfd_uplink_priority_reduce' in form_data and form_data['bfd_uplink_priority_reduce']:
+                try:
+                    reduce_val = int(form_data['bfd_uplink_priority_reduce'])
+                    if not (1 <= reduce_val <= 255):
+                        errors.append("BFD上行链路优先级减少值必须在1-255范围内")
+                except ValueError:
+                    errors.append("BFD上行链路优先级减少值必须是数字")
+
+        # 接口监控验证
+        if form_data.get('configure_interface_monitor') == 'true':
+            if 'monitor_interface' in form_data and form_data['monitor_interface']:
+                valid, msg = ConfigValidator.validate_interface(form_data['monitor_interface'])
+                if not valid:
+                    errors.append(f"监控接口名称错误: {msg}")
+
+            if 'monitor_priority_reduce' in form_data and form_data['monitor_priority_reduce']:
+                try:
+                    reduce_val = int(form_data['monitor_priority_reduce'])
+                    if not (1 <= reduce_val <= 255):
+                        errors.append("监控接口优先级减少值必须在1-255范围内")
+                except ValueError:
+                    errors.append("监控接口优先级减少值必须是数字")
+
+        # NQA配置验证
+        if form_data.get('configure_nqa_uplink') == 'true':
+            if 'nqa_destination_ip' in form_data and form_data['nqa_destination_ip']:
+                valid, msg = ConfigValidator.validate_ip_address(form_data['nqa_destination_ip'])
+                if not valid:
+                    errors.append(f"NQA目的IP地址错误: {msg}")
+
+            if 'nqa_priority_reduce' in form_data and form_data['nqa_priority_reduce']:
+                try:
+                    reduce_val = int(form_data['nqa_priority_reduce'])
+                    if not (1 <= reduce_val <= 255):
+                        errors.append("NQA优先级减少值必须在1-255范围内")
+                except ValueError:
+                    errors.append("NQA优先级减少值必须是数字")
 
     return len(errors) == 0, errors

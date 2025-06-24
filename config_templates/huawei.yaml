@@ -7,7 +7,7 @@ vlan_complete_config:
     create_vlan:
       type: "boolean"
       required: false
-      default: true
+      default: false
       description: "是否创建VLAN"
       order: 1
 
@@ -28,7 +28,7 @@ vlan_complete_config:
     configure_interface:
       type: "boolean"
       required: false
-      default: true
+      default: false
       description: "是否配置接口VLAN"
       order: 4
 
@@ -56,24 +56,7 @@ vlan_complete_config:
       description: "允许通过的VLAN列表(仅trunk模式，支持范围如：10,20,30-40)"
       order: 8
 
-    # 可选的VLAN接口IP配置
-    configure_vlan_ip:
-      type: "boolean"
-      required: false
-      default: false
-      description: "是否配置VLAN接口IP地址"
-      order: 9
-    vlan_ip_address:
-      type: "string"
-      required: false
-      description: "VLAN接口IP地址（支持CIDR格式，如：192.168.1.1/24）"
-      order: 10
-    vlan_ip_description:
-      type: "string"
-      required: false
-      max_length: 80
-      description: "VLAN接口描述"
-      order: 11
+    # 删除了VLAN接口IP配置参数
   commands: |
     {% if create_vlan and vlan_id %}
     # 第一步：创建VLAN
@@ -113,16 +96,7 @@ vlan_complete_config:
     {% endfor %}
     {% endif %}
 
-    {% if configure_vlan_ip and vlan_ip_address %}
-    # 第三步：可选的VLAN接口IP配置
-    interface Vlanif{{ vlan_id if not is_batch else vlan_list[0] }}
-    ip address {{ vlan_ip_address }} {{ vlan_subnet_mask }}
-    {% if vlan_ip_description %}
-    description {{ vlan_ip_description }}
-    {% endif %}
-    undo shutdown
-    quit
-    {% endif %}
+    # 删除了VLAN接口IP配置命令
   example:
     create_vlan: true
     vlan_id: "100"
@@ -131,9 +105,7 @@ vlan_complete_config:
     interface: "GigabitEthernet0/0/1-4"
     port_mode: "access"
     pvid: 100
-    configure_vlan_ip: true
-    vlan_ip_address: "192.168.100.1/24"
-    vlan_ip_description: "Office network gateway"
+    # 删除了VLAN接口IP配置示例
 
 port_aggregation:
   description: "端口聚合配置"
@@ -166,6 +138,7 @@ port_aggregation:
     configure_load_balance:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置负载均衡算法"
       order: 5
     load_balance_mode:
@@ -179,6 +152,7 @@ port_aggregation:
     configure_lacp_priority:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置LACP优先级"
       order: 7
     lacp_system_priority:
@@ -200,6 +174,7 @@ port_aggregation:
     configure_lacp_timeout:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置LACP超时模式"
       order: 10
     lacp_timeout:
@@ -213,6 +188,7 @@ port_aggregation:
     configure_advanced:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置高级选项"
       order: 12
     min_active_links:
@@ -225,6 +201,7 @@ port_aggregation:
     local_preference:
       type: "boolean"
       required: false
+      default: false
       description: "是否启用本地优先转发"
       order: 14
   commands: |
@@ -301,7 +278,7 @@ ospf_config:
     enable_basic_config:
       type: "boolean"
       required: false
-      default: true
+      default: false
       description: "基础OSPF配置"
       order: 1
 
@@ -328,6 +305,7 @@ ospf_config:
     configure_area_auth:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置区域认证"
       order: 5
     area_auth_type:
@@ -353,6 +331,7 @@ ospf_config:
     configure_interface_auth:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置接口认证"
       order: 9
     interface_auth_interface:
@@ -377,6 +356,7 @@ ospf_config:
     configure_advanced:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置高级选项"
       order: 13
     stub_area:
@@ -402,6 +382,7 @@ ospf_config:
     configure_interface:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置接口参数"
       order: 17
     interface_name:
@@ -413,6 +394,7 @@ ospf_config:
     configure_interface_routing:
       type: "boolean"
       required: false
+      default: false
       description: "是否将物理接口配置为路由模式（仅物理接口需要）"
       order: 19
     interface_cost:
@@ -432,6 +414,7 @@ ospf_config:
     configure_timers:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置OSPF定时器"
       order: 22
     hello_interval:
@@ -451,31 +434,37 @@ ospf_config:
     configure_redistribute:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置路由引入"
       order: 25
     redistribute_static:
       type: "boolean"
       required: false
+      default: false
       description: "引入静态路由"
       order: 26
     redistribute_direct:
       type: "boolean"
       required: false
+      default: false
       description: "引入直连路由"
       order: 27
     redistribute_rip:
       type: "boolean"
       required: false
+      default: false
       description: "引入RIP路由"
       order: 28
     redistribute_bgp:
       type: "boolean"
       required: false
+      default: false
       description: "引入BGP路由"
       order: 29
     redistribute_isis:
       type: "boolean"
       required: false
+      default: false
       description: "引入ISIS路由"
       order: 30
     redistribute_cost:
@@ -638,9 +627,10 @@ dhcp_service:
 
     dhcp_type:
       type: "string"
-      required: true
+      required: false
       options: ["global", "interface"]
-      description: "华为地址池类型"
+      default: "global"
+      description: "华为地址池类型：global(全局地址池) 或 interface(接口地址池)"
       order: 2
     pool_name:
       type: "string"
@@ -889,6 +879,7 @@ stp_config:
     global_enable:
       type: "boolean"
       required: false
+      default: false
       description: "全局使能生成树协议"
       order: 2
     root_bridge_config:
@@ -900,6 +891,7 @@ stp_config:
     bpdu_protection:
       type: "boolean"
       required: false
+      default: false
       description: "全局使能BPDU保护"
       order: 4
     bridge_priority:
@@ -941,6 +933,7 @@ stp_config:
     configure_timing_params:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置影响RSTP/MSTP拓扑收敛的参数"
       order: 10
     hello_time:
@@ -969,6 +962,7 @@ stp_config:
     configure_port_blocking:
       type: "boolean"
       required: false
+      default: false
       description: "是否配置端口阻塞"
       order: 14
     interface:
@@ -988,6 +982,7 @@ stp_config:
     edge_port:
       type: "boolean"
       required: false
+      default: false
       description: "边缘端口功能"
       order: 17
     edge_port_interface:
@@ -998,6 +993,7 @@ stp_config:
     root_protection:
       type: "boolean"
       required: false
+      default: false
       description: "根保护功能"
       order: 19
     root_protection_interface:
@@ -1008,6 +1004,7 @@ stp_config:
     loop_protection:
       type: "boolean"
       required: false
+      default: false
       description: "环路保护功能"
       order: 21
     loop_protection_interface:
@@ -1155,3 +1152,452 @@ stp_config:
     edge_port_interface: "GigabitEthernet1/0/5-8"
     root_protection: true
     root_protection_interface: "GigabitEthernet1/0/9-12"
+
+vrrp_config:
+  description: "VRRP网关冗余配置（华为VRRP协议）"
+  parameters:
+    # 基础VRRP配置
+    vlan_id:
+      type: "integer"
+      required: true
+      range: [1, 4094]
+      description: "VLAN ID"
+      placeholder: "100"
+      order: 1
+
+    interface_ip:
+      type: "string"
+      required: true
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+      description: "接口IP地址"
+      placeholder: "192.168.100.1/24"
+      order: 2
+
+    vrrp_group_id:
+      type: "integer"
+      required: true
+      range: [1, 255]
+      description: "VRRP组ID"
+      placeholder: "1"
+      order: 3
+
+    virtual_ip:
+      type: "string"
+      required: true
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "虚拟网关IP地址"
+      placeholder: "192.168.100.254"
+      order: 4
+
+    priority:
+      type: "integer"
+      required: false
+      range: [1, 254]
+      description: "VRRP优先级（数值越大优先级越高）"
+      placeholder: "100"
+      default: 100
+      order: 5
+
+    # 高级配置选项
+    configure_advanced:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置高级选项"
+      order: 6
+
+    preempt_mode:
+      type: "boolean"
+      required: false
+      default: false
+      description: "启用抢占模式"
+      order: 7
+
+    preempt_delay:
+      type: "integer"
+      required: false
+      range: [0, 18000]
+      description: "抢占延迟时间（秒）"
+      placeholder: "0"
+      default: 0
+      order: 8
+
+    advertisement_interval:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "通告间隔（秒）"
+      placeholder: "1"
+      default: 1
+      order: 9
+
+    # 认证配置
+    configure_authentication:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置认证"
+      order: 10
+
+    auth_mode:
+      type: "string"
+      required: false
+      options: ["simple", "md5"]
+      description: "认证模式"
+      default: "simple"
+      order: 11
+
+    auth_key:
+      type: "string"
+      required: false
+      description: "认证密钥"
+      placeholder: "vrrpkey123"
+      order: 12
+
+    # VRRP与BFD联动实现快速切换
+    configure_bfd:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置VRRP与BFD联动实现快速切换"
+      order: 13
+
+    bfd_session_name:
+      type: "string"
+      required: false
+      description: "BFD会话名称"
+      placeholder: "vrrp-fast-switch"
+      order: 14
+
+    bfd_peer_ip:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "BFD对端IP地址"
+      placeholder: "10.1.1.2"
+      order: 15
+
+    bfd_local_discriminator:
+      type: "integer"
+      required: false
+      range: [1, 16384]
+      description: "BFD本地标识符"
+      placeholder: "1"
+      default: 1
+      order: 16
+
+    bfd_remote_discriminator:
+      type: "integer"
+      required: false
+      range: [1, 16384]
+      description: "BFD远端标识符"
+      placeholder: "2"
+      default: 2
+      order: 17
+
+    bfd_priority_reduce:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "BFD Down时优先级减少值"
+      placeholder: "40"
+      default: 40
+      order: 18
+
+    # VRRP与基于VRID的动态BFD会话联动配置
+    configure_dynamic_bfd:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置VRRP与基于VRID的动态BFD会话联动"
+      order: 19
+
+    dynamic_bfd_template:
+      type: "string"
+      required: false
+      description: "动态BFD模板名称"
+      placeholder: "bfd-template-vrrp"
+      order: 20
+
+    # VRRP与接口状态联动监视上行接口配置
+    configure_interface_monitor:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置VRRP与接口状态联动监视上行接口"
+      order: 21
+
+    monitor_interface:
+      type: "string"
+      required: false
+      description: "监视的上行接口"
+      placeholder: "GigabitEthernet0/0/2"
+      order: 22
+
+    monitor_priority_reduce:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "监视接口Down时优先级减少值"
+      placeholder: "20"
+      default: 20
+      order: 23
+
+    # VRRP与BFD联动监视上行链路配置
+    configure_bfd_uplink:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置VRRP与BFD联动监视上行链路"
+      order: 24
+
+    bfd_uplink_session_name:
+      type: "string"
+      required: false
+      description: "BFD会话名称"
+      placeholder: "uplink-monitor"
+      order: 25
+
+    bfd_uplink_peer_ip:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "BFD对端IP地址"
+      placeholder: "172.16.1.2"
+      order: 26
+
+    bfd_uplink_local_discriminator:
+      type: "integer"
+      required: false
+      range: [1, 16384]
+      description: "BFD本地标识符"
+      placeholder: "1"
+      default: 1
+      order: 27
+
+    bfd_uplink_remote_discriminator:
+      type: "integer"
+      required: false
+      range: [1, 16384]
+      description: "BFD远端标识符"
+      placeholder: "2"
+      default: 2
+      order: 28
+
+    bfd_uplink_priority_reduce:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "BFD Down时优先级减少值"
+      placeholder: "40"
+      default: 40
+      order: 29
+
+    # VRRP与NQA联动监视上行链路配置
+    configure_nqa_uplink:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置VRRP与NQA联动监视上行链路"
+      order: 30
+
+    nqa_test_instance:
+      type: "string"
+      required: false
+      description: "NQA测试例名称"
+      placeholder: "nqa-test-uplink"
+      order: 31
+
+    nqa_destination_ip:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+      description: "NQA目的IP地址"
+      placeholder: "8.8.8.8"
+      order: 32
+
+    nqa_priority_reduce:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "NQA测试失败时优先级减少值"
+      placeholder: "25"
+      default: 25
+      order: 33
+
+    # VRRP与路由联动监视上行链路配置
+    configure_route_monitor:
+      type: "boolean"
+      required: false
+      default: false
+      description: "配置VRRP与路由联动监视上行链路"
+      order: 34
+
+    monitor_route:
+      type: "string"
+      required: false
+      pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+      description: "监视的路由网段"
+      placeholder: "0.0.0.0/0"
+      order: 35
+
+    route_priority_reduce:
+      type: "integer"
+      required: false
+      range: [1, 255]
+      description: "路由消失时优先级减少值"
+      placeholder: "40"
+      default: 40
+      order: 36
+
+  commands: |
+    # 创建VLAN
+    vlan {{ vlan_id }}
+    quit
+
+    # 配置VLAN接口
+    interface Vlanif{{ vlan_id }}
+    ip address {{ interface_ip | ip_from_cidr }} {{ interface_ip | netmask_from_cidr }}
+
+    # 基础VRRP配置
+    vrrp vrid {{ vrrp_group_id }} virtual-ip {{ virtual_ip }}
+    {% if priority != 100 %}
+    vrrp vrid {{ vrrp_group_id }} priority {{ priority }}
+    {% endif %}
+
+    {% if configure_advanced %}
+    # 高级配置
+    {% if preempt_mode %}
+    vrrp vrid {{ vrrp_group_id }} preempt-mode timer delay {{ preempt_delay }}
+    {% else %}
+    vrrp vrid {{ vrrp_group_id }} preempt-mode disable
+    {% endif %}
+    {% if advertisement_interval != 1 %}
+    vrrp vrid {{ vrrp_group_id }} timer advertise {{ advertisement_interval }}
+    {% endif %}
+    {% endif %}
+
+    {% if configure_authentication and auth_mode and auth_key %}
+    # 认证配置
+    {% if auth_mode == "simple" %}
+    vrrp vrid {{ vrrp_group_id }} authentication-mode simple plain {{ auth_key }}
+    {% elif auth_mode == "md5" %}
+    vrrp vrid {{ vrrp_group_id }} authentication-mode md5 plain {{ auth_key }}
+    {% endif %}
+    {% endif %}
+
+    quit
+
+    {% if configure_bfd %}
+    # VRRP与BFD联动实现快速切换
+    bfd
+    quit
+
+    bfd {{ bfd_session_name|default('vrrp-fast-switch') }} bind peer-ip {{ bfd_peer_ip }} interface Vlanif{{ vlan_id }}
+    discriminator local {{ bfd_local_discriminator|default(1) }}
+    discriminator remote {{ bfd_remote_discriminator|default(2) }}
+    commit
+    quit
+
+    interface Vlanif{{ vlan_id }}
+    vrrp vrid {{ vrrp_group_id }} track bfd {{ bfd_local_discriminator|default(1) }} reduce {{ bfd_priority_reduce|default(40) }}
+    quit
+    {% endif %}
+
+    {% if configure_dynamic_bfd %}
+    # VRRP与基于VRID的动态BFD会话联动配置
+    bfd-template {{ dynamic_bfd_template }}
+    min-tx-interval {{ bfd_min_tx|default(100) }}
+    min-rx-interval {{ bfd_min_rx|default(100) }}
+    detect-multiplier {{ bfd_multiplier|default(3) }}
+    quit
+
+    interface Vlanif{{ vlan_id }}
+    vrrp vrid {{ vrrp_group_id }} track bfd-template {{ dynamic_bfd_template }} reduced 10
+    quit
+    {% endif %}
+
+    {% if configure_interface_monitor %}
+    # VRRP与接口状态联动监视上行接口配置
+    interface Vlanif{{ vlan_id }}
+    vrrp vrid {{ vrrp_group_id }} track interface {{ monitor_interface }} reduced {{ monitor_priority_reduce }}
+    quit
+    {% endif %}
+
+    {% if configure_bfd_uplink %}
+    # VRRP与BFD联动监视上行链路配置
+    bfd
+    quit
+
+    bfd {{ bfd_uplink_session_name|default('uplink-monitor') }} bind peer-ip {{ bfd_uplink_peer_ip }}
+    discriminator local {{ bfd_uplink_local_discriminator|default(1) }}
+    discriminator remote {{ bfd_uplink_remote_discriminator|default(2) }}
+    commit
+    quit
+
+    interface Vlanif{{ vlan_id }}
+    vrrp vrid {{ vrrp_group_id }} track bfd {{ bfd_uplink_local_discriminator|default(1) }} reduce {{ bfd_uplink_priority_reduce|default(40) }}
+    quit
+    {% endif %}
+
+    {% if configure_nqa_uplink %}
+    # VRRP与NQA联动监视上行链路配置
+    nqa test-instance {{ nqa_test_instance }}
+    test-type icmp
+    destination-address ipv4 {{ nqa_destination_ip }}
+    frequency 1000
+    probe-count 3
+    timeout 3
+    start now
+    quit
+
+    interface Vlanif{{ vlan_id }}
+    vrrp vrid {{ vrrp_group_id }} track nqa {{ nqa_test_instance }} reduced {{ nqa_priority_reduce }}
+    quit
+    {% endif %}
+
+    {% if configure_route_monitor %}
+    # VRRP与路由联动监视上行链路配置
+    interface Vlanif{{ vlan_id }}
+    vrrp vrid {{ vrrp_group_id }} track ip route {{ monitor_route }} reduced {{ route_priority_reduce }}
+    quit
+    {% endif %}
+
+    # 保存配置
+    save
+
+  example:
+    vlan_id: 100
+    interface_ip: "192.168.100.1/24"
+    vrrp_group_id: 1
+    virtual_ip: "192.168.100.254"
+    priority: 110
+    configure_advanced: true
+    preempt_mode: true
+    preempt_delay: 5
+    advertisement_interval: 1
+    configure_authentication: true
+    auth_mode: "simple"
+    auth_key: "vrrpkey123"
+    configure_bfd: true
+    bfd_session_name: "vrrp-fast-switch"
+    bfd_peer_ip: "10.1.1.2"
+    bfd_local_discriminator: 1
+    bfd_remote_discriminator: 2
+    bfd_priority_reduce: 40
+    configure_bfd_uplink: true
+    bfd_uplink_session_name: "uplink-monitor"
+    bfd_uplink_peer_ip: "172.16.1.2"
+    bfd_uplink_local_discriminator: 1
+    bfd_uplink_remote_discriminator: 2
+    bfd_uplink_priority_reduce: 40
+    configure_dynamic_bfd: false
+    configure_interface_monitor: true
+    monitor_interface: "GigabitEthernet0/0/2"
+    monitor_priority_reduce: 20
+    configure_bfd_uplink: false
+    configure_nqa_uplink: true
+    nqa_test_instance: "nqa-test-uplink"
+    nqa_destination_ip: "8.8.8.8"
+    nqa_priority_reduce: 25
+    configure_route_monitor: false
