@@ -686,7 +686,10 @@ dhcp_service:
     lease_time:
       type: "string"
       required: false
+      default: "1 0 0"
+      pattern: "^\\d+\\s+\\d+\\s+\\d+$"
       description: "租约时间（格式：天 小时 分钟，如：1 0 0）"
+      placeholder: "1 0 0"
       order: 12
 
     # DHCP中继配置参数

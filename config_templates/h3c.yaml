@@ -643,9 +643,9 @@ dhcp_service:
       type: "integer"
       required: false
       default: 1
-      min: 0
-      max: 365
+      range: [0, 365]
       description: "租约时间（天，0表示永久）"
+      placeholder: "1"
       order: 8
 
     # 新增接口配置参数

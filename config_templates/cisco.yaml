@@ -678,8 +678,10 @@ dhcp_service:
     lease_time:
       type: "string"
       required: false
-      default: "1"
+      default: "1 0 0"
+      pattern: "^(\\d+\\s+\\d+\\s+\\d+|infinite)$"
       description: "租约时间（天 小时 分钟，如：1 0 0，infinite表示永久）"
+      placeholder: "1 0 0"
       order: 8
 
     # 新增接口配置参数

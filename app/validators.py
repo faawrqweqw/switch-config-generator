@@ -212,7 +212,7 @@ class ConfigValidator:
         """验证接口范围格式"""
         return ConfigValidator.validate_interface(interface_range)
 
-def validate_form_data(config_type: str, form_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
+def validate_form_data(config_type: str, form_data: Dict[str, Any], vendor: str = None) -> Tuple[bool, List[str]]:
     """验证表单数据（支持智能输入格式）"""
     errors = []
 
@@ -288,27 +288,50 @@ def validate_form_data(config_type: str, form_data: Dict[str, Any]) -> Tuple[boo
             if not vlanif.startswith('Vlanif') and not vlanif.startswith('vlanif'):
                 errors.append("VLAN接口格式错误，应为 'Vlanif100' 格式")
 
-        # 验证租期时间格式
-        if 'lease_time' in form_data and form_data['lease_time']:
-            lease_time_str = form_data['lease_time'].strip()
-            if lease_time_str:
-                parts = lease_time_str.split()
-                if len(parts) != 3:
-                    errors.append("租期时间格式错误，应为 '天 小时 分钟' 格式，如：1 0 0")
-                else:
-                    try:
-                        days = int(parts[0])
-                        hours = int(parts[1])
-                        minutes = int(parts[2])
+        # 验证租期时间格式（根据厂商不同处理）
+        if 'lease_time' in form_data and form_data['lease_time'] is not None:
+            lease_time_value = form_data['lease_time']
 
-                        if not (0 <= days <= 365):
-                            errors.append("租期时间天数必须在0-365范围内")
-                        if not (0 <= hours <= 23):
-                            errors.append("租期时间小时数必须在0-23范围内")
-                        if not (0 <= minutes <= 59):
-                            errors.append("租期时间分钟数必须在0-59范围内")
-                    except ValueError:
-                        errors.append("租期时间必须是数字，格式：天 小时 分钟，如：1 0 0")
+            # H3C使用整数格式（天数）
+            if vendor == 'h3c':
+                if isinstance(lease_time_value, int):
+                    if not (0 <= lease_time_value <= 365):
+                        errors.append("租期时间范围错误，应为0-365天")
+                elif isinstance(lease_time_value, str) and lease_time_value.strip().isdigit():
+                    days = int(lease_time_value.strip())
+                    if not (0 <= days <= 365):
+                        errors.append("租期时间范围错误，应为0-365天")
+                else:
+                    errors.append("H3C租期时间应为整数（天数），如：1")
+
+            # 其他厂商使用字符串格式（天 小时 分钟）
+            else:
+                if isinstance(lease_time_value, str):
+                    lease_time_str = lease_time_value.strip()
+                    if lease_time_str:
+                        # 支持infinite关键字（思科/锐捷）
+                        if lease_time_str.lower() == 'infinite':
+                            pass  # infinite是有效值
+                        else:
+                            parts = lease_time_str.split()
+                            if len(parts) != 3:
+                                errors.append("租期时间格式错误，应为 '天 小时 分钟' 格式，如：1 0 0")
+                            else:
+                                try:
+                                    days = int(parts[0])
+                                    hours = int(parts[1])
+                                    minutes = int(parts[2])
+
+                                    if not (0 <= days <= 365):
+                                        errors.append("租期时间天数必须在0-365范围内")
+                                    if not (0 <= hours <= 23):
+                                        errors.append("租期时间小时数必须在0-23范围内")
+                                    if not (0 <= minutes <= 59):
+                                        errors.append("租期时间分钟数必须在0-59范围内")
+                                except ValueError:
+                                    errors.append("租期时间必须是数字，格式：天 小时 分钟，如：1 0 0")
+                else:
+                    errors.append("租期时间格式错误，应为 '天 小时 分钟' 格式，如：1 0 0")
 
     elif config_type == 'interface_ip':
         # 验证接口IP配置参数

@@ -2261,6 +2261,15 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `<small class="form-text text-muted">${param.help || param.placeholder}</small>`;
         }
 
+        // 添加特殊字段的验证提示
+        if (paramName === 'lease_time') {
+            if (currentVendor === 'h3c') {
+                html += '<small class="form-text text-muted">输入天数，如：1（表示1天），0表示永久</small>';
+            } else if (currentVendor === 'huawei' || currentVendor === 'cisco' || currentVendor === 'ruijie') {
+                html += '<small class="form-text text-muted">格式：天 小时 分钟，如：1 0 0，或输入 infinite 表示永久（仅思科/锐捷）</small>';
+            }
+        }
+
         html += '</div>';
         return html;
     }
@@ -3062,6 +3071,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log(`  跳过隐藏字段（值为空）: ${input.name}`);
                 }
             } else if (input.value && input.value.trim() !== '') {
+                let value = input.value.trim();
+
+                // 处理数字类型字段
+                if (input.type === 'number') {
+                    value = parseFloat(value);
+                    if (isNaN(value)) {
+                        console.log(`  ⚠️  跳过无效数字: ${input.name} = "${input.value}"`);
+                        return;
+                    }
+                    // 对于整数字段，转换为整数
+                    if (Number.isInteger(value)) {
+                        value = parseInt(value);
+                    }
+                }
+
                 // 检查是否是数组字段格式 (如: interface_entries[0].interface_type)
                 const arrayMatch = input.name.match(/^(\w+)\[(\d+)\]\.(\w+)$/);
                 if (arrayMatch) {
@@ -3078,11 +3102,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         formData[arrayName][arrayIndex] = {};
                     }
 
-                    formData[arrayName][arrayIndex][fieldName] = input.value.trim();
-                    console.log(`  ✅ 收集数组字段: ${arrayName}[${arrayIndex}].${fieldName} = ${input.value.trim()}`);
+                    formData[arrayName][arrayIndex][fieldName] = value;
+                    console.log(`  ✅ 收集数组字段: ${arrayName}[${arrayIndex}].${fieldName} = ${value}`);
                 } else {
-                    formData[input.name] = input.value.trim();
-                    console.log(`  ✅ 收集普通字段: ${input.name} = ${input.value.trim()}`);
+                    formData[input.name] = value;
+                    console.log(`  ✅ 收集普通字段: ${input.name} = ${value}`);
                 }
             } else {
                 console.log(`  跳过（值为空）: ${input.name} = "${input.value}"`);
@@ -3238,6 +3262,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // 更新端口预览（端口输入字段的预览功能）
+    function updatePortPreview(paramName) {
+        const portGroup = document.querySelector(`[data-param="${paramName}"]`);
+        if (!portGroup) return;
+
+        const prefixSelect = portGroup.querySelector('.port-prefix-select');
+        const numberInput = portGroup.querySelector('.port-number-input');
+        const hiddenInput = portGroup.querySelector('input[type="hidden"]');
+        const preview = portGroup.querySelector('.port-preview');
+
+        if (prefixSelect && numberInput && hiddenInput) {
+            const prefix = prefixSelect.value;
+            const numbers = numberInput.value.trim();
+
+            if (prefix && numbers) {
+                // 组合端口名称
+                const portName = `${prefix}${numbers}`;
+                hiddenInput.value = portName;
+
+                if (preview) {
+                    preview.textContent = `预览: ${portName}`;
+                    preview.style.display = 'block';
+                }
+            } else {
+                hiddenInput.value = '';
+                if (preview) {
+                    preview.style.display = 'none';
+                }
+            }
+        }
+    }
+
     // 暴露全局函数
     window.nextStep = nextStep;
     window.previousStep = previousStep;
@@ -3250,6 +3306,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.updateFieldLabels = updateFieldLabels;
     window.addArrayItem = addArrayItem;
     window.removeArrayItem = removeArrayItem;
+    window.updatePortPreview = updatePortPreview;
 });
 </script>
 {% endblock %}

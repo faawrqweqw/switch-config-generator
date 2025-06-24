@@ -486,7 +486,7 @@ def generate_config():
 
         # 验证表单数据
         from app.validators import validate_form_data
-        is_valid, errors = validate_form_data(config_type, processed_params)
+        is_valid, errors = validate_form_data(config_type, processed_params, vendor)
         if not is_valid:
             for error in errors:
                 flash(error, 'error')
@@ -603,29 +603,54 @@ def process_smart_inputs(config_type, vendor, form_data):
             relay_servers = [addr.strip() for addr in form_data['relay_server_address'].split(',') if addr.strip()]
             processed['relay_server_list'] = relay_servers
 
-        # 处理租期时间 - 支持"天 小时 分钟"格式
-        if 'lease_time' in form_data and form_data['lease_time']:
-            lease_time_str = form_data['lease_time'].strip()
-            if lease_time_str:
-                # 验证格式：天 小时 分钟（如：1 0 0）
-                parts = lease_time_str.split()
-                if len(parts) == 3:
-                    try:
-                        days = int(parts[0])
-                        hours = int(parts[1])
-                        minutes = int(parts[2])
+        # 处理租期时间 - 支持不同厂商的格式
+        if 'lease_time' in form_data and form_data['lease_time'] is not None:
+            lease_time_value = form_data['lease_time']
 
-                        # 验证范围
-                        if 0 <= days <= 365 and 0 <= hours <= 23 and 0 <= minutes <= 59:
+            # H3C使用整数格式（天数）
+            if vendor == 'h3c':
+                if isinstance(lease_time_value, int):
+                    if 0 <= lease_time_value <= 365:
+                        processed['lease_time'] = lease_time_value
+                    else:
+                        raise ValueError("租期时间范围错误，应为0-365天")
+                elif isinstance(lease_time_value, str) and lease_time_value.strip().isdigit():
+                    days = int(lease_time_value.strip())
+                    if 0 <= days <= 365:
+                        processed['lease_time'] = days
+                    else:
+                        raise ValueError("租期时间范围错误，应为0-365天")
+                else:
+                    raise ValueError("H3C租期时间应为整数（天数），如：1")
+
+            # 其他厂商使用字符串格式（天 小时 分钟）
+            else:
+                if isinstance(lease_time_value, str):
+                    lease_time_str = lease_time_value.strip()
+                    if lease_time_str:
+                        # 支持infinite关键字（思科/锐捷）
+                        if lease_time_str.lower() == 'infinite':
                             processed['lease_time'] = lease_time_str
                         else:
-                            raise ValueError('租期时间范围不正确')
-                    except ValueError:
-                        # 如果格式不正确，使用默认值
-                        processed['lease_time'] = "1 0 0"  # 默认1天
+                            # 验证格式：天 小时 分钟（如：1 0 0）
+                            parts = lease_time_str.split()
+                            if len(parts) == 3:
+                                try:
+                                    days = int(parts[0])
+                                    hours = int(parts[1])
+                                    minutes = int(parts[2])
+
+                                    # 验证范围
+                                    if 0 <= days <= 365 and 0 <= hours <= 23 and 0 <= minutes <= 59:
+                                        processed['lease_time'] = lease_time_str
+                                    else:
+                                        raise ValueError('租期时间范围不正确')
+                                except ValueError:
+                                    raise ValueError("租期时间格式错误，应为 '天 小时 分钟' 格式，如：1 0 0")
+                            else:
+                                raise ValueError("租期时间格式错误，应为 '天 小时 分钟' 格式，如：1 0 0")
                 else:
-                    # 如果格式不正确，使用默认值
-                    processed['lease_time'] = "1 0 0"  # 默认1天
+                    raise ValueError("租期时间格式错误，应为 '天 小时 分钟' 格式，如：1 0 0")
 
 
 
@@ -804,7 +829,7 @@ def api_generate_config():
 
         # 验证参数
         from app.validators import validate_form_data
-        is_valid, errors = validate_form_data(config_type, parameters)
+        is_valid, errors = validate_form_data(config_type, parameters, vendor)
         if not is_valid:
             return jsonify({
                 'success': False,
